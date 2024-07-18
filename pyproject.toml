@@ -2,13 +2,11 @@
 name = "blackjack"
 version = "0.1.0"
 description = ""
-authors = ["Julien Dubost <j.dubost@b-sharpe.com>"]
+authors = ["Julien Bou <allankicker@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-numpy = "^1.25.1"
-pandas = "^2.0.3"
 ipython = "^8.14.0"
 black = "^23.7.0"
 
