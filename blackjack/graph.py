@@ -1,31 +1,80 @@
 import copy
+import pprint
 import os
 from dataclasses import dataclass
 
-import numpy
-import numpy as np
 
-from blackjack.values import (
+from blackjack.constants import (
     HandState,
+    PRE_HIT_CARDS,
+    HIT_CARDS,
+    HIT_TRANSITIONS,
     BANK_STARTING_CARDS,
     BANK_STAND_STATES,
     BANK_STAND_SCORES,
     STATE_TO_SCORE,
     PLAYER_END_STATES,
     PLAYER_STARTING_STATES,
+    HIT_PROBABILITIES,
 )
-from blackjack.compute_arrays import hit_transition_matrix, score_ev
 
-HIT_TRANSITION_MATRIX = hit_transition_matrix()
 
-HERE = os.path.dirname(__file__)
-PRECOMPUTED = os.path.join(os.path.dirname(HERE), "precomputed")
+def score_ev(player_state, bank_state):
+    """
+    return the player score expected value against final bank state
+    """
+    # If player is busted, value is 0 even if bank is busted
+    if player_state is HandState.BUST:
+        return 0
+    if bank_state not in BANK_STAND_SCORES:
+        raise ValueError(f"bank's final score {bank_state} is forbidden")
+    bank_score = STATE_TO_SCORE[bank_state].value
+    player_score = STATE_TO_SCORE[player_state].value
+    if player_score == bank_score:
+        return 1
+    if player_score > bank_score:
+        return 2 if player_state != HandState.BLACKJACK else 2.5
+    return 0
+
+
+def hit_transition_matrix():
+    """
+    compute the hit transition probability matrix for every possible HandState.
+    A transition is defined by a start state and an end state
+
+    Example here where (only display rows from 16 to 20):
+     - each row represent a starting state
+     - each column represent the final state
+
+        16          17      18      19      20      21      BUST
+    16  0           1/13    1/13    1/13    1/13    1/13    8/13
+    17  0           0       1/13    1/13    1/13    1/13    9/13
+    18  0           0       0       1/13    1/13    1/13    10/13
+    19  0           0       0       0       1/13    1/13    11/13
+    20  0           0       0       0       0       1/13    12/13
+
+    Return a list of list
+    """
+    transition_matrix = []
+    for _ in range(len(HandState)):
+        transition_matrix.append([0] * len(HandState))
+    for state_int, row in enumerate(transition_matrix):
+        state = HandState(state_int)
+        if state in PRE_HIT_CARDS:
+            for hit_state in HIT_CARDS:
+                probability = HIT_PROBABILITIES[hit_state]
+                final_state = HIT_TRANSITIONS[state].get(hit_state, HandState.BUST)
+                transition_matrix[state.value][final_state.value] += probability
+    return transition_matrix
 
 
 @dataclass
 class Transition:
     destination_hand_state: HandState
     probability: float
+
+    def __str__(self):
+        return f"=> {str(self.destination_hand_state)} (p:{round(self.probability, 2)})"
 
 
 #######################################
@@ -49,6 +98,7 @@ class BankTransitions:
 
     def __init__(self):
         self.transitions = {}  # state: list of Transition instances
+        self.hit_transition_matrix = hit_transition_matrix()
 
     def compute(self, state):
         # stop if the state is final
@@ -56,7 +106,7 @@ class BankTransitions:
             return
         # get all possible transitions using hit matrix
         for hand_state_index, probability in enumerate(
-            HIT_TRANSITION_MATRIX[state.value]
+            self.hit_transition_matrix[state.value]
         ):
             if probability:
                 # add transition to self.transitions
@@ -78,7 +128,7 @@ class BankTransitions:
         if transition_probabilities is None:
             transition_probabilities = []
         if state in BANK_STAND_STATES:
-            # node is in a stand state, evaluate branch probability
+            # it is a stand state, evaluate branch probability
             probability = 1
             for transition_probability in transition_probabilities:
                 probability *= transition_probability
@@ -137,6 +187,15 @@ class BankTransitions:
                 if transitions is None:
                     self.compute(hand_state)
 
+    def __str__(self):
+        str_repr = ""
+        for state, transitions in self.transitions.items():
+            str_repr += f"{str(state)}:\n"
+            for transition in transitions:
+                str_repr += f"  {str(transition)}\n"
+
+        return str_repr
+
 
 ####################################
 # Class for player graph computation
@@ -145,21 +204,27 @@ class BankTransitions:
 
 class PlayerGraph:
     """
-    Player DAG for a specific bank card
+    Player directed acyclic graph for a specific bank card
     bank_score_probabilities is a dict of bank's final scores probabilities
     e.g: {HandState.TWENTY_ONE: 0.13, ...}
+
+    Example usage for a graph based on an Ace as bank's card:
+    pg = PlayerGraph(HandState.ACE)
+    pg.build()
     """
 
     def __init__(self, bank_card):
         self.transitions = {}  # {state: list of Transition instances}$
         self.stand_evs = {}  # {state : expected value if you stand at this state}
         self.hit_evs = {}  # {state : expected value if you hit at this state}
+        self.bank_card = bank_card
+        self.hit_transition_matrix = hit_transition_matrix()
 
         # bank score probabilities
         bank_transitions = BankTransitions()
         bank_transitions.build()
         self.bank_final_scores_probabilities = (
-            bank_transitions.get_final_scores_probabilities()[bank_card]
+            bank_transitions.get_final_scores_probabilities()[self.bank_card]
         )
 
     def get_stand_ev(self, hand_state):
@@ -178,7 +243,7 @@ class PlayerGraph:
                 self.stand_evs[state] = self.get_stand_ev(state)
                 if state not in PLAYER_END_STATES:
                     for index, probability in enumerate(
-                        HIT_TRANSITION_MATRIX[state.value]
+                        self.hit_transition_matrix[state.value]
                     ):
                         next_hand_state = HandState(index)
                         if self.transitions.get(state) is None:
@@ -204,29 +269,17 @@ class PlayerGraph:
         self._build_stand_evs()
         self._build_hit_evs()
 
-    def get_max_ev(self, state, probability):
-        # TODO finish
+    def get_state_ev(self, state, probability):
+        state_ev = self.get_stand_ev(state) * probability  # the EV of the current state
+        hit_ev = 0
         for transition in self.transitions.get(state, []):
-            transition_hit_ev = self.hit_evs[transition.destination_hand_state]
-            transition_stand_ev = self.stand_evs[transition.destination_hand_state]
-            max_ev = max(transition_hit_ev, transition_stand_ev) * probability
-            if transition.probability and transition_hit_ev:
-                max_ev = max(
-                    max_ev,
-                    self.get_max_ev(transition.destination_hand_state, probability),
+            if transition.probability:
+                hit_ev += self.get_state_ev(
+                    transition.destination_hand_state,
+                    transition.probability * probability,
                 )
-        print(f"get_max_ev for {state} is {max_ev}")
-        return max_ev
 
-    def evaluate_branch(self, hand_state, branch_probability=1, max_ev=0, hits=0, ):
-        stand_ev = self.get_stand_ev(hand_state)
-        if stand_ev > max_ev:
-            max_ev = stand_ev
-        if hand_state in
-            #TODO: finish
-
-
-
+        return max(state_ev, hit_ev)
 
     def get_best_move(self, state):
         """
@@ -234,7 +287,7 @@ class PlayerGraph:
         """
         next_ev = self.hit_evs[state]  # EV of a single hit  (use case "double")
         # Evaluate the maximum ev reachable from this state using one or more cards draw
-        max_ev = self.get_max_ev(state, 1)
+        max_ev = self.get_state_ev(state, 1)
         stand_ev = self.stand_evs[state]
         if next_ev > stand_ev:
             if next_ev >= max_ev:
@@ -250,3 +303,15 @@ class PlayerGraph:
         print(f"next_ev: {next_ev}")
         print(f"max_ev: {max_ev}")
         print(f"best move: {best_move}")
+
+    def __str__(self):
+        ret = "-------------------------------------------------\n"
+        ret += f"Bank card: {str(self.bank_card)}\n"
+        ret += "-------------------------------------------------\n"
+        ret += f"{'Player state':<20}{'EV stand':<15}{'EV hit & stand':<15}\n"
+        ret += "-------------------------------------------------\n"
+        for state in HandState:
+            if state != HandState.BUST:
+                ret += f"{str(state):<20}{round(self.stand_evs.get(state, 0), 3):<15}{round(self.hit_evs.get(state, 0), 3):<15}\n"
+        ret += "-------------------------------------------------\n"
+        return ret
