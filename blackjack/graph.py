@@ -220,7 +220,10 @@ class PlayerGraph:
     def __init__(self, bank_card):
         self.transitions = {}  # {state: list of Transition instances}$
         self.stand_evs = {}  # {state : expected value if you stand at this state}
-        self.hit_evs = {}  # {state : expected value if you hit at this state}
+        self.hit_evs = (
+            {}
+        )  # {state : expected value if you hit at this state then stand}
+        self.max_evs = {}  # {state : maximum expected value for this state}
         self.bank_card = bank_card
         self.hit_transition_matrix = hit_transition_matrix()
 
@@ -269,48 +272,84 @@ class PlayerGraph:
                 )
             self.hit_evs[state] = hit_ev
 
+    def _max_ev(self, state, probability):
+        """
+        Evaluate maximum EV of a state by evaluating recursively all state branches
+        """
+        hit_ev = 0
+        for transition in self.transitions.get(state, []):
+            if transition.probability:
+                hit_ev += self._max_ev(
+                    transition.destination_hand_state,
+                    transition.probability * probability,
+                )
+
+        return max(hit_ev, self.stand_evs[state] * probability)
+
+    def _build_max_evs(self):
+        """ """
+        for state in HandState:
+            self.max_evs[state] = self._max_ev(state, 1)
+
     def build(self):
         self._build_stand_evs()
         self._build_hit_evs()
+        self._build_max_evs()
 
     def get_best_move(self, state):
         """
         Return the best move for given state
         """
-        hit_ev = self.hit_evs[state]  # EV of a single hit  (use case "double")
+        max_hit_ev = self.max_evs[state]  # EV of hit and stand at the best position
         stand_ev = self.stand_evs[state]
-        post_split_hit_ev = (
-            self.hit_evs[POST_SPLIT_STATE[state]] if state in POST_SPLIT_STATE else 0
+        post_split_max_ev = (
+            self.max_evs[POST_SPLIT_STATE[state]] if state in POST_SPLIT_STATE else 0
         )
 
         max_ev_move = max(
-            (stand_ev, MOVE_STAND), (hit_ev, MOVE_HIT), (post_split_hit_ev, MOVE_SPLIT)
+            (stand_ev, MOVE_STAND),
+            (max_hit_ev, MOVE_HIT),
+            (post_split_max_ev, MOVE_SPLIT),
         )
-        ev, best_move = max_ev_move
-        if ev > 1:
+        max_ev, best_move = max_ev_move
+        if max_ev > 1:
+            # Try to increase player bet
             if best_move == MOVE_HIT:
                 best_move = MOVE_DOUBLE_ELSE_HIT
-        elif ev < 0.5:
+        elif max_ev > 0.5:
+            # Split only if EV is 2 times greater than maximum hit EV
+            if best_move == MOVE_SPLIT:
+                if max_ev < 2 * max_hit_ev:
+                    best_move = MOVE_HIT if max_hit_ev > stand_ev else MOVE_STAND
+        else:
+            # Surrender the hand
             if best_move == MOVE_HIT:
                 best_move = MOVE_SURRENDER_ELSE_HIT
             elif best_move == MOVE_SPLIT:
-                best_move = MOVE_SURRENDER_ELSE_SPLIT
+                if post_split_max_ev > 2 * max_hit_ev:
+                    best_move = MOVE_SURRENDER_ELSE_SPLIT
+                else:
+                    best_move = (
+                        MOVE_SURRENDER_ELSE_HIT
+                        if max_hit_ev > stand_ev
+                        else MOVE_SURRENDER_ELSE_STAND
+                    )
             elif best_move == MOVE_STAND:
                 best_move = MOVE_SURRENDER_ELSE_STAND
 
         return best_move
 
     def __str__(self):
-        ret = "-------------------------------------------------------------------------\n"
+        ret = "-------------------------------------------------------------------------------\n"
         ret += f"Bank card: {str(self.bank_card)}\n"
-        ret += "-------------------------------------------------------------------------\n"
-        ret += f"{'Player state':<20}{'EV stand':<15}{'EV hit & stand':<20}{'Best possible move':<15}\n"
-        ret += "-------------------------------------------------------------------------\n"
+        ret += "-------------------------------------------------------------------------------\n"
+        ret += f"{'Player state':<20}{'EV stand':<15}{'EV hit & stand':<20}{'Max EV':<15}{'Best move':<15}\n"
+        ret += "-------------------------------------------------------------------------------\n"
         for state in HandState:
             if state != HandState.BUST:
                 best_move = self.get_best_move(state)
-                ret += f"{str(state):<20}{round(self.stand_evs.get(state, 0), 3):<15}{round(self.hit_evs.get(state, 0), 3):<20}{best_move:<15}\n"
-        ret += "-------------------------------------------------------------------------\n"
+                ret += f"{str(state):<20}{round(self.stand_evs.get(state, 0), 3):<15}{round(self.hit_evs.get(state, 0), 3):<20}{round(self.max_evs[state], 3):<15}{best_move:<15}\n"
+        ret += "-------------------------------------------------------------------------------\n"
         ret += f"Legend:\n"
         ret += f"  {MOVE_STAND}: Stand\n"
         ret += f"  {MOVE_HIT}: Hit\n"
@@ -319,5 +358,6 @@ class PlayerGraph:
         ret += f"  {MOVE_DOUBLE_ELSE_HIT}: Double if possible else hit\n"
         ret += f"  {MOVE_SURRENDER_ELSE_HIT}: Surrender if possible else hit\n"
         ret += f"  {MOVE_SURRENDER_ELSE_SPLIT}: Surrender if possible else split\n"
-        ret += "-------------------------------------------------------------------------\n"
+        ret += f"  Max EV: Maximum EV you can get if you hit and stand at the best position\n"
+        ret += "-------------------------------------------------------------------------------\n"
         return ret
