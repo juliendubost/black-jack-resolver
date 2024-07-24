@@ -247,6 +247,55 @@ PLAYER_STARTING_STATES = [
     HandState.POCKET_FIGURE,
 ]
 
+# All hard stated for a player
+PLAYER_HARD_STATES = [
+    HandState.FOUR,
+    HandState.FIVE,
+    HandState.SIX,
+    HandState.SEVEN,
+    HandState.EIGHT,
+    HandState.NINE,
+    HandState.TEN,
+    HandState.ELEVEN,
+    HandState.TWELVE,
+    HandState.THIRTEEN,
+    HandState.FOURTEEN,
+    HandState.FIFTEEN,
+    HandState.SIXTEEN,
+    HandState.SEVENTEEN,
+    HandState.EIGHTEEN,
+    HandState.NINETEEN,
+    HandState.TWENTY,
+]
+
+# All soft states for a player
+PLAYER_SOFT_STATES = [
+    HandState.TWO_TWELVE,
+    HandState.THREE_THIRTEEN,
+    HandState.FOUR_FOURTEEN,
+    HandState.FIVE_FIFTEEN,
+    HandState.SIX_SIXTEEN,
+    HandState.SEVEN_SEVENTEEN,
+    HandState.EIGHT_EIGHTEEN,
+    HandState.NINE_NINETEEN,
+    HandState.TEN_TWENTY,
+]
+
+# All player pocket pairs state
+PLAYER_PAIRS_STATES = [
+    HandState.POCKET_ACE,
+    HandState.POCKET_TWO,
+    HandState.POCKET_THREE,
+    HandState.POCKET_FOUR,
+    HandState.POCKET_FIVE,
+    HandState.POCKET_SIX,
+    HandState.POCKET_SEVEN,
+    HandState.POCKET_EIGHT,
+    HandState.POCKET_NINE,
+    HandState.POCKET_FIGURE,
+]
+
+
 # All suitable hand scores for the player to stand with
 PLAYER_STAND_STATES = [
     HandState.BLACKJACK,
@@ -710,3 +759,28 @@ HIT_PROBABILITIES = {
     HandState.NINE: 1 / 13,
     HandState.FIGURE: 4 / 13,
 }
+
+# State after a split for each pocket pairs states
+POST_SPLIT_STATE = {
+    HandState.POCKET_ACE: HandState.ACE,
+    HandState.POCKET_TWO: HandState.TWO,
+    HandState.POCKET_THREE: HandState.THREE,
+    HandState.POCKET_FOUR: HandState.FOUR,
+    HandState.POCKET_FIVE: HandState.FIVE,
+    HandState.POCKET_SIX: HandState.SIX,
+    HandState.POCKET_SEVEN: HandState.SEVEN,
+    HandState.POCKET_EIGHT: HandState.EIGHT,
+    HandState.POCKET_NINE: HandState.NINE,
+    HandState.POCKET_FIGURE: HandState.FIGURE,
+}
+
+# Moves
+MOVE_STAND = "S"
+MOVE_HIT = "H"
+MOVE_DOUBLE = "D"
+MOVE_SPLIT = "P"
+MOVE_DOUBLE_ELSE_STAND = "D-S"
+MOVE_DOUBLE_ELSE_HIT = "D-H"
+MOVE_SURRENDER_ELSE_HIT = "U-H"
+MOVE_SURRENDER_ELSE_STAND = "U-S"
+MOVE_SURRENDER_ELSE_SPLIT = "U-P"
