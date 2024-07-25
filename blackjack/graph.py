@@ -317,9 +317,11 @@ class PlayerGraph:
             if best_move == MOVE_HIT:
                 best_move = MOVE_DOUBLE_ELSE_HIT
         elif max_ev > 0.5:
-            # Split only if EV is 2 times greater than maximum hit EV
+            # Split only if absolute loss of the 2 bets are lesser than the absolute loss of the single bet
+            # absolute loss on a single bet = 1 - max_EV
+            # absolute loss on 2 bets = 2 * (1 - max_EV)
             if best_move == MOVE_SPLIT:
-                if max_ev < 2 * max_hit_ev:
+                if (2 * (1 - max_ev)) > (1 - max_hit_ev):
                     best_move = MOVE_HIT if max_hit_ev > stand_ev else MOVE_STAND
         else:
             # Surrender the hand
@@ -351,13 +353,19 @@ class PlayerGraph:
                 ret += f"{str(state):<20}{round(self.stand_evs.get(state, 0), 3):<15}{round(self.hit_evs.get(state, 0), 3):<20}{round(self.max_evs[state], 3):<15}{best_move:<15}\n"
         ret += "-------------------------------------------------------------------------------\n"
         ret += f"Legend:\n"
-        ret += f"  {MOVE_STAND}: Stand\n"
-        ret += f"  {MOVE_HIT}: Hit\n"
-        ret += f"  {MOVE_SPLIT}: Split\n"
-        ret += f"  {MOVE_DOUBLE_ELSE_STAND}: Double if possible else stand\n"
-        ret += f"  {MOVE_DOUBLE_ELSE_HIT}: Double if possible else hit\n"
-        ret += f"  {MOVE_SURRENDER_ELSE_HIT}: Surrender if possible else hit\n"
-        ret += f"  {MOVE_SURRENDER_ELSE_SPLIT}: Surrender if possible else split\n"
-        ret += f"  Max EV: Maximum EV you can get if you hit and stand at the best position\n"
+        ret += f"  [Player state] Represent the player state:\n"
+        ret += f"    10: a score of ten that can't lead to a black jack, for example 8 & 2 or 5 & 5 or 6 & 4, ...\n"
+        ret += f"    F: a single figure, this can be obtained only by splitting a pocket figure hand\n"
+        ret += f"  [EV stand] Give the expected value of standing in this position (1.0 = even)\n"
+        ret += f"  [EV hit & stand] Give the expected value of hit and stand from this position (useful to evaluate if a double is relevant)\n"
+        ret += f"  [Max EV] Give the maximum expected value that can be obtained from this position using only stand or hit choices\n"
+        ret += f"  [Best move] Give the best move from this position:\n"
+        ret += f"    {MOVE_STAND}: Stand\n"
+        ret += f"    {MOVE_HIT}: Hit\n"
+        ret += f"    {MOVE_SPLIT}: Split\n"
+        ret += f"    {MOVE_DOUBLE_ELSE_STAND}: Double if possible else stand\n"
+        ret += f"    {MOVE_DOUBLE_ELSE_HIT}: Double if possible else hit\n"
+        ret += f"    {MOVE_SURRENDER_ELSE_HIT}: Surrender if possible else hit\n"
+        ret += f"    {MOVE_SURRENDER_ELSE_SPLIT}: Surrender if possible else split\n"
         ret += "-------------------------------------------------------------------------------\n"
         return ret
