@@ -31,7 +31,7 @@ poetry install
 ```
 
 # Usage 
-Activate poetry env then run ipython
+Activate poetry env
 
 ```shell
 poetry shell
