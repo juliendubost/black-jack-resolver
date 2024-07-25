@@ -1,6 +1,4 @@
 import copy
-import pprint
-import os
 from dataclasses import dataclass
 
 
@@ -14,8 +12,16 @@ from blackjack.constants import (
     BANK_STAND_SCORES,
     STATE_TO_SCORE,
     PLAYER_END_STATES,
-    PLAYER_STARTING_STATES,
     HIT_PROBABILITIES,
+    POST_SPLIT_STATE,
+    MOVE_HIT,
+    MOVE_STAND,
+    MOVE_SPLIT,
+    MOVE_DOUBLE_ELSE_STAND,
+    MOVE_DOUBLE_ELSE_HIT,
+    MOVE_SURRENDER_ELSE_SPLIT,
+    MOVE_SURRENDER_ELSE_HIT,
+    MOVE_SURRENDER_ELSE_STAND,
 )
 
 
@@ -200,8 +206,6 @@ class BankTransitions:
 ####################################
 # Class for player graph computation
 ####################################
-
-
 class PlayerGraph:
     """
     Player directed acyclic graph for a specific bank card
@@ -216,7 +220,10 @@ class PlayerGraph:
     def __init__(self, bank_card):
         self.transitions = {}  # {state: list of Transition instances}$
         self.stand_evs = {}  # {state : expected value if you stand at this state}
-        self.hit_evs = {}  # {state : expected value if you hit at this state}
+        self.hit_evs = (
+            {}
+        )  # {state : expected value if you hit at this state then stand}
+        self.max_evs = {}  # {state : maximum expected value for this state}
         self.bank_card = bank_card
         self.hit_transition_matrix = hit_transition_matrix()
 
@@ -265,53 +272,100 @@ class PlayerGraph:
                 )
             self.hit_evs[state] = hit_ev
 
-    def build(self):
-        self._build_stand_evs()
-        self._build_hit_evs()
-
-    def get_state_ev(self, state, probability):
-        state_ev = self.get_stand_ev(state) * probability  # the EV of the current state
+    def _max_ev(self, state, probability):
+        """
+        Evaluate maximum EV of a state by evaluating recursively all state branches
+        """
         hit_ev = 0
         for transition in self.transitions.get(state, []):
             if transition.probability:
-                hit_ev += self.get_state_ev(
+                hit_ev += self._max_ev(
                     transition.destination_hand_state,
                     transition.probability * probability,
                 )
 
-        return max(state_ev, hit_ev)
+        return max(hit_ev, self.stand_evs[state] * probability)
+
+    def _build_max_evs(self):
+        """ """
+        for state in HandState:
+            self.max_evs[state] = self._max_ev(state, 1)
+
+    def build(self):
+        self._build_stand_evs()
+        self._build_hit_evs()
+        self._build_max_evs()
 
     def get_best_move(self, state):
         """
         Return the best move for given state
         """
-        next_ev = self.hit_evs[state]  # EV of a single hit  (use case "double")
-        # Evaluate the maximum ev reachable from this state using one or more cards draw
-        max_ev = self.get_state_ev(state, 1)
+        max_hit_ev = self.max_evs[state]  # EV of hit and stand at the best position
         stand_ev = self.stand_evs[state]
-        if next_ev > stand_ev:
-            if next_ev >= max_ev:
-                best_move = "double"
-            else:
-                best_move = "hit"
-        elif max_ev > stand_ev:
-            best_move = "hit"
-        else:
-            best_move = "stand"
+        post_split_max_ev = (
+            self.max_evs[POST_SPLIT_STATE[state]] if state in POST_SPLIT_STATE else 0
+        )
 
-        print(f"stand_ev: {stand_ev}")
-        print(f"next_ev: {next_ev}")
-        print(f"max_ev: {max_ev}")
-        print(f"best move: {best_move}")
+        max_ev_move = max(
+            (stand_ev, MOVE_STAND),
+            (max_hit_ev, MOVE_HIT),
+            (post_split_max_ev, MOVE_SPLIT),
+        )
+        max_ev, best_move = max_ev_move
+        if max_ev > 1:
+            # Try to increase player bet
+            if best_move == MOVE_HIT:
+                best_move = MOVE_DOUBLE_ELSE_HIT
+        elif max_ev > 0.5:
+            # Split only if absolute loss of the 2 bets are lesser than the absolute loss of the single bet
+            # absolute loss on a single bet = 1 - max_EV
+            # absolute loss on 2 bets = 2 * (1 - max_EV)
+            if best_move == MOVE_SPLIT:
+                if (2 * (1 - max_ev)) > (1 - max_hit_ev):
+                    best_move = MOVE_HIT if max_hit_ev > stand_ev else MOVE_STAND
+        else:
+            # Surrender the hand
+            if best_move == MOVE_HIT:
+                best_move = MOVE_SURRENDER_ELSE_HIT
+            elif best_move == MOVE_SPLIT:
+                if post_split_max_ev > 2 * max_hit_ev:
+                    best_move = MOVE_SURRENDER_ELSE_SPLIT
+                else:
+                    best_move = (
+                        MOVE_SURRENDER_ELSE_HIT
+                        if max_hit_ev > stand_ev
+                        else MOVE_SURRENDER_ELSE_STAND
+                    )
+            elif best_move == MOVE_STAND:
+                best_move = MOVE_SURRENDER_ELSE_STAND
+
+        return best_move
 
     def __str__(self):
-        ret = "-------------------------------------------------\n"
+        ret = "-------------------------------------------------------------------------------\n"
         ret += f"Bank card: {str(self.bank_card)}\n"
-        ret += "-------------------------------------------------\n"
-        ret += f"{'Player state':<20}{'EV stand':<15}{'EV hit & stand':<15}\n"
-        ret += "-------------------------------------------------\n"
+        ret += "-------------------------------------------------------------------------------\n"
+        ret += f"{'Player state':<20}{'EV stand':<15}{'EV hit & stand':<20}{'Max EV':<15}{'Best move':<15}\n"
+        ret += "-------------------------------------------------------------------------------\n"
         for state in HandState:
             if state != HandState.BUST:
-                ret += f"{str(state):<20}{round(self.stand_evs.get(state, 0), 3):<15}{round(self.hit_evs.get(state, 0), 3):<15}\n"
-        ret += "-------------------------------------------------\n"
+                best_move = self.get_best_move(state)
+                ret += f"{str(state):<20}{round(self.stand_evs.get(state, 0), 3):<15}{round(self.hit_evs.get(state, 0), 3):<20}{round(self.max_evs[state], 3):<15}{best_move:<15}\n"
+        ret += "-------------------------------------------------------------------------------\n"
+        ret += f"Legend:\n"
+        ret += f"  [Player state] Represent the player state:\n"
+        ret += f"    10: a score of ten that can't lead to a black jack, for example 8 & 2 or 5 & 5 or 6 & 4, ...\n"
+        ret += f"    F: a single figure, this can be obtained only by splitting a pocket figure hand\n"
+        ret += f"  [EV stand] Give the expected value of standing in this position (1.0 = even)\n"
+        ret += f"  [EV hit & stand] Give the expected value of hit and stand from this position (useful to evaluate if a double is relevant)\n"
+        ret += f"  [Max EV] Give the maximum expected value that can be obtained from this position using only stand or hit choices\n"
+        ret += f"  [Best move] Give the best move from this position:\n"
+        ret += f"    {MOVE_STAND}: Stand\n"
+        ret += f"    {MOVE_HIT}: Hit\n"
+        ret += f"    {MOVE_SPLIT}: Split\n"
+        ret += f"    {MOVE_DOUBLE_ELSE_STAND}: Double if possible else stand\n"
+        ret += f"    {MOVE_DOUBLE_ELSE_HIT}: Double if possible else hit\n"
+        ret += f"    {MOVE_SURRENDER_ELSE_HIT}: Surrender if possible else hit\n"
+        ret += f"    {MOVE_SURRENDER_ELSE_SPLIT}: Surrender if possible else split\n"
+        ret += "-------------------------------------------------------------------------------\n"
         return ret
