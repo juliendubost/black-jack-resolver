@@ -365,6 +365,7 @@ class PlayerGraph:
         ret += f"    {MOVE_SPLIT}: Split\n"
         ret += f"    {MOVE_DOUBLE_ELSE_STAND}: Double if possible else stand\n"
         ret += f"    {MOVE_DOUBLE_ELSE_HIT}: Double if possible else hit\n"
+        ret += f"    {MOVE_SURRENDER_ELSE_STAND}: Surrender if possible else stand\n"
         ret += f"    {MOVE_SURRENDER_ELSE_HIT}: Surrender if possible else hit\n"
         ret += f"    {MOVE_SURRENDER_ELSE_SPLIT}: Surrender if possible else split\n"
         ret += "-------------------------------------------------------------------------------\n"

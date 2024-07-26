@@ -1,16 +1,20 @@
 ```text
-
-                   _ _   
-                  | A | 
-                  | _ | 
-     _ _                            _ _
- _ _| J |                       _ _| K | 
-| A | _ |                      | Q | _ |
-| _ |                          | _ |
-                     _ _
-                 _ _| 2 | 
-                | 5 | _ |                   
-                | _ |   
+                 ... Black Jack Resolver ...
+                 
+                            _ _   
+                           | A | 
+                           | _ | 
+                           
+                           
+                     _ _                _ _
+                 _ _| J |           _ _| K | 
+                | A | _ |          | Q | _ |
+                | _ |              | _ |
+                   [$$]       _ _     [$]  
+                         _ _| 2 | 
+                        | 5 | _ |                   
+                        | _ |   
+                          [$$$]
 
 ```
 
@@ -21,8 +25,9 @@ Black Jack resolver is a simple python app that compute and display expected val
 Solving is based on a [directed acyclic graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) representation of hand states
 
 Hypothesis are:
-- An infinite number of decks, at any time the probability of draw is 1/13 for any card but a 10-valued card and 4/13 for a ten-valued card
+- An infinite number of decks, at any time the probability of drawing card that is not ten-valued is 1/13 and 4/13 for a 10-valued card
 - Dealer (aka bank) hit under 17 and stop on any soft or hard hand with value greater or equal than 17
+- Infinite split allowed for player hand
 
 # Install using poetry
 
@@ -109,6 +114,7 @@ Legend:
     Sp: Split
     D-S: Double if possible else stand
     D-H: Double if possible else hit
+    U-S: Surrender if possible else stand
     U-H: Surrender if possible else hit
     U-Sp: Surrender if possible else split
 -------------------------------------------------------------------------------
@@ -411,6 +417,7 @@ A                   0.525          1.408               1.634          D-H
 BJ                  2.5            0                   2.5            S              
 -------------------------------------------------------------------------------
 
+-------------------------------------------------------------------------------
 Bank card: 8
 -------------------------------------------------------------------------------
 Player state        EV stand       EV hit & stand      Max EV         Best move      
@@ -557,8 +564,3 @@ A                   0.424          1.182               1.343          D-H
 BJ                  2.385          0                   2.385          S              
 -------------------------------------------------------------------------------
 ```
-
-
-
-
-
