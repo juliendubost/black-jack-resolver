@@ -1,12 +1,16 @@
 import sys
 
 from blackjack.graph import BankTransitions, PlayerGraph, score_ev
-from blackjack.constants import BANK_STARTING_CARDS, STATE_TO_SCORE, PLAYER_POSSIBLE_STATES, HandState
+from blackjack.constants import (
+    BANK_STARTING_CARDS,
+    STATE_TO_SCORE,
+    PLAYER_POSSIBLE_STATES,
+    HandState,
+)
 from blackjack.tests.simulator import get_bank_score, CardGenerator
 
 
 class TestBankTransitions:
-
     def test_final_score_probabilities(self):
         """
         Assert determinist final score probabilities for the bank are correct using a montecarlo validation
@@ -17,7 +21,9 @@ class TestBankTransitions:
         final_score_probabilities = bank_transitions.get_final_scores_probabilities()
         sample_size = 100_000
         for start_card in BANK_STARTING_CARDS:
-            sys.stdout.write(f"Final scores probabilities for start card {start_card} (determined / monte carlo):\n")
+            sys.stdout.write(
+                f"Final scores probabilities for start card {start_card} (determined / monte carlo):\n"
+            )
             final_scores = {}
             for i in range(sample_size):
                 final_score = STATE_TO_SCORE[get_bank_score(start_card, card_generator)]
@@ -26,30 +32,43 @@ class TestBankTransitions:
                 final_scores[final_score] += 1
 
             for score, count in final_scores.items():
-                monte_carlo_probability = round(count/sample_size, 2)
-                determinist_probability = round(final_score_probabilities[start_card][score], 2)
-                sys.stdout.write(f"{score}: {determinist_probability} / {monte_carlo_probability}\n")
+                monte_carlo_probability = round(count / sample_size, 2)
+                determinist_probability = round(
+                    final_score_probabilities[start_card][score], 2
+                )
+                sys.stdout.write(
+                    f"{score}: {determinist_probability} / {monte_carlo_probability}\n"
+                )
                 # accept a variation of 0.011 (= 1.1 percent point)
                 assert abs(determinist_probability - monte_carlo_probability) <= 0.011
 
 
 class TestPlayerGraph:
-
     def test_stand_ev(self):
         """
         Assert determinist stand expected values are correct using a montecarlo validation
         """
+        card_generator = CardGenerator()
         for bank_start_card in BANK_STARTING_CARDS:
-            sys.stdout.write(f"Stand EVs for bank card {bank_start_card} (determined / monte carlo):\n")
+            sys.stdout.write(
+                f"Stand EVs for bank card {bank_start_card} (determined / monte carlo):\n"
+            )
             player_graph = PlayerGraph(bank_start_card)
             player_graph.build()
             for player_state in PLAYER_POSSIBLE_STATES:
                 sample_size = 100_000
-                #TODO: finish
+                stand_ev = round(player_graph.get_stand_ev(player_state), 2)
+                montecarlo_absolute_ev = 0
+                for i in range(sample_size):
+                    bank_final_score = STATE_TO_SCORE[
+                        get_bank_score(bank_start_card, card_generator)
+                    ]
+                    montecarlo_absolute_ev += score_ev(player_state, bank_final_score)
+                montecarlo_ev = round(montecarlo_absolute_ev / sample_size, 2)
+                sys.stdout.write(f"{player_state}: {stand_ev} / {montecarlo_ev}\n")
 
 
 def test_score_ev():
-
     # Bank have a blackjack
     assert score_ev(HandState.BLACKJACK, HandState.BLACKJACK) == 1
     assert score_ev(HandState.TWENTY_ONE, HandState.BLACKJACK) == 0
@@ -175,7 +194,6 @@ def test_score_ev():
     assert score_ev(HandState.POCKET_EIGHT, HandState.TWENTY) == 0
     assert score_ev(HandState.POCKET_NINE, HandState.TWENTY) == 0
     assert score_ev(HandState.POCKET_FIGURE, HandState.TWENTY) == 1
-
 
     # Bank have a 19
     assert score_ev(HandState.BLACKJACK, HandState.NINETEEN) == 2.5
