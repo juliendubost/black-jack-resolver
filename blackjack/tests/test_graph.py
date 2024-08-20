@@ -5,9 +5,10 @@ from blackjack.constants import (
     BANK_STARTING_CARDS,
     STATE_TO_SCORE,
     PLAYER_POSSIBLE_STATES,
+    HIT_TRANSITIONS,
     HandState,
 )
-from blackjack.tests.simulator import get_bank_score, CardGenerator
+from blackjack.tests.random import get_bank_score, CardGenerator
 
 
 class TestBankTransitions:
@@ -39,33 +40,132 @@ class TestBankTransitions:
                 sys.stdout.write(
                     f"{score}: {determinist_probability} / {monte_carlo_probability}\n"
                 )
-                # accept a variation of 0.011 (= 1.1 percent point)
+                # accept a variation of 0.01001 (= 1 percent point for rounding reasons)
                 assert abs(determinist_probability - monte_carlo_probability) <= 0.011
 
 
 class TestPlayerGraph:
-    def test_stand_ev(self):
+    """
+    Use one method for each card to enable pytest-xdist parallelization
+    """
+
+    def assert_stand_ev(self, bank_start_card):
+        card_generator = CardGenerator()
+        sys.stdout.write(
+            f"Stand EVs for bank card {bank_start_card} (determined / monte carlo):\n"
+        )
+        player_graph = PlayerGraph(bank_start_card)
+        player_graph.build()
+        for player_state in PLAYER_POSSIBLE_STATES:
+            sample_size = 100_000
+            stand_ev = round(player_graph.get_stand_ev(player_state), 2)
+            montecarlo_absolute_ev = 0
+            for i in range(sample_size):
+                bank_final_score = STATE_TO_SCORE[
+                    get_bank_score(bank_start_card, card_generator)
+                ]
+                montecarlo_absolute_ev += score_ev(player_state, bank_final_score)
+            montecarlo_ev = round(montecarlo_absolute_ev / sample_size, 2)
+            sys.stdout.write(f"{player_state}: {stand_ev} / {montecarlo_ev}\n")
+            assert abs(stand_ev - montecarlo_ev) <= 0.011
+
+    def test_ace_stand_ev(self):
         """
         Assert determinist stand expected values are correct using a montecarlo validation
+        for an ace on bank side
+        """
+        self.assert_stand_ev(HandState.ACE)
+
+    def test_figure_stand_ev(self):
+        """
+        Assert determinist stand expected values are correct using a montecarlo validation
+        for a figure on bank side
+        """
+        self.assert_stand_ev(HandState.FIGURE)
+
+    def test_nine_stand_ev(self):
+        """
+        Assert determinist stand expected values are correct using a montecarlo validation
+        for a nine on bank side
+        """
+        self.assert_stand_ev(HandState.NINE)
+
+    def test_eight_stand_ev(self):
+        """
+        Assert determinist stand expected values are correct using a montecarlo validation
+        for an eight on bank side
+        """
+        self.assert_stand_ev(HandState.EIGHT)
+
+    def test_seven_stand_ev(self):
+        """
+        Assert determinist stand expected values are correct using a montecarlo validation
+        for a seven on bank side
+        """
+        self.assert_stand_ev(HandState.SEVEN)
+
+    def test_six_stand_ev(self):
+        """
+        Assert determinist stand expected values are correct using a montecarlo validation
+        for a six on bank side
+        """
+        self.assert_stand_ev(HandState.SIX)
+
+    def test_five_stand_ev(self):
+        """
+        Assert determinist stand expected values are correct using a montecarlo validation
+        for a five on bank side
+        """
+        self.assert_stand_ev(HandState.FIVE)
+
+    def test_four_stand_ev(self):
+        """
+        Assert determinist stand expected values are correct using a montecarlo validation
+        for a four on bank side
+        """
+        self.assert_stand_ev(HandState.FOUR)
+
+    def test_three_stand_ev(self):
+        """
+        Assert determinist stand expected values are correct using a montecarlo validation
+        for a three on bank side
+        """
+        self.assert_stand_ev(HandState.THREE)
+
+    def test_two_stand_ev(self):
+        """
+        Assert determinist stand expected values are correct using a montecarlo validation
+        for a two on bank side
+        """
+        self.assert_stand_ev(HandState.TWO)
+
+    def test_ace_against_sixteen_max_ev(self):
+        """
+        Assert maximum EV reachable from player state sixteen against an ace on the bank is correct
         """
         card_generator = CardGenerator()
-        for bank_start_card in BANK_STARTING_CARDS:
-            sys.stdout.write(
-                f"Stand EVs for bank card {bank_start_card} (determined / monte carlo):\n"
+        player_graph = PlayerGraph(HandState.ACE)
+        player_graph.build()
+        max_ev = player_graph.get_stand_ev(HandState.SIXTEEN)
+
+        absolute_ev = 0
+        for i in range(100_000):
+            draw_card = card_generator.get()
+            after_draw_state = HIT_TRANSITIONS[HandState.SIXTEEN].get(
+                draw_card, HandState.BUST
             )
-            player_graph = PlayerGraph(bank_start_card)
-            player_graph.build()
-            for player_state in PLAYER_POSSIBLE_STATES:
-                sample_size = 100_000
-                stand_ev = round(player_graph.get_stand_ev(player_state), 2)
-                montecarlo_absolute_ev = 0
-                for i in range(sample_size):
-                    bank_final_score = STATE_TO_SCORE[
-                        get_bank_score(bank_start_card, card_generator)
-                    ]
-                    montecarlo_absolute_ev += score_ev(player_state, bank_final_score)
-                montecarlo_ev = round(montecarlo_absolute_ev / sample_size, 2)
-                sys.stdout.write(f"{player_state}: {stand_ev} / {montecarlo_ev}\n")
+            for (
+                bank_score,
+                probability,
+            ) in player_graph.bank_final_scores_probabilities.items():
+                absolute_ev += score_ev(after_draw_state, bank_score) * probability
+        draw_ev = absolute_ev / 100_000
+        max_ev = max(max_ev, draw_ev)
+        sys.stdout.write(
+            f"Max EV for bank card {HandState.ACE} and player state {HandState.SIXTEEN} (determined / monte carlo):\n"
+        )
+        sys.stdout.write(f"{player_graph.max_evs[HandState.SIXTEEN]} / {max_ev}")
+        assert abs(player_graph.max_evs[HandState.SIXTEEN] - max_ev) < 0.101
 
 
 def test_score_ev():
