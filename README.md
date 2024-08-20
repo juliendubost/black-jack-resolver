@@ -22,18 +22,30 @@
 
 Black Jack resolver is a simple python app that compute and display expected values and best player move for each bank's start cards
 
-Solving is based on a [directed acyclic graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) representation of hand states
+Solving is determinist and based on a [directed acyclic graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) representation of hand states
+A monte-carlo validation is implemented as unit tests.
 
 Hypothesis are:
 - An infinite number of decks, at any time the probability of drawing card that is not ten-valued is 1/13 and 4/13 for a 10-valued card
 - Dealer (aka bank) hit under 17 and stop on any soft or hard hand with value greater or equal than 17
 - Infinite split allowed for player hand
+- Best move determination does not consider the possibility to double after a split. This can result in a slightly under-estimated split expected value in some cases
+
 
 # Install using poetry
 
 ```shell
 poetry install
 ```
+
+# Run tests
+
+```shell
+pytest  # run on a single thread
+pytest -s  # run on a single thread and display logs
+pytest -n 8  # run on 8 cores using pytest-xdist
+```
+
 
 # Usage 
 Activate poetry env
