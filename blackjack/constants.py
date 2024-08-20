@@ -7,7 +7,7 @@ class HandState(Enum):
     Represent as well a single card (ex:, bank starting hand) or a hand of multiple cards
      (ex:, player starting hand or player's hand after one card hit)
     Some scores represent a single card, for example ACE is an Ace,
-    whereas TEN can be a single card (a ten or a figure) or a combinaison of cards (5 + 5 or 6 + 4)
+    whereas TEN can be a single card (a ten or a figure) or a combination of cards (5 + 5 or 6 + 4)
     Values are used as
      - row and columns index in the transitions arrays
      - abstract score of the hand, used for hands comparison (blackjack = 22 since it is winning against 21)
@@ -205,11 +205,9 @@ BANK_STAND_SCORES = [
     HandState.BUST,
 ]
 
-# All possible hands for the player to start with
-PLAYER_STARTING_STATES = [
+# All possible states a player can face during the game
+PLAYER_POSSIBLE_STATES = [
     HandState.BLACKJACK,
-    HandState.TWO,
-    HandState.THREE,
     HandState.FOUR,
     HandState.FIVE,
     HandState.SIX,
@@ -227,6 +225,7 @@ PLAYER_STARTING_STATES = [
     HandState.EIGHTEEN,
     HandState.NINETEEN,
     HandState.TWENTY,
+    HandState.TWENTY_ONE,
     HandState.THREE_THIRTEEN,
     HandState.FOUR_FOURTEEN,
     HandState.FIVE_FIFTEEN,
