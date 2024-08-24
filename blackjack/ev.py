@@ -2,9 +2,10 @@ from blackjack.graph import PlayerGraph
 from blackjack import constants
 
 
-def compute_game_ev():
+def compute_game_ev(graph_class):
     """
     Compute the whole game expected value
+    graph_class: one of PlayerGraph or BasicStrategyGraph
     """
     # compute expected value against each bank card
     player_abs_val = 0  # total absolute value for the player
@@ -12,7 +13,7 @@ def compute_game_ev():
         bank_card_probability = (
             1 / 13 if bank_card != constants.HandState.FIGURE else 4 / 13
         )
-        player_graph = PlayerGraph(bank_card)
+        player_graph = graph_class(bank_card)
         player_graph.build()
         for player_hand, probability in constants.START_HAND_PROBABILITIES.items():
             best_move = player_graph.get_best_move(player_hand)
