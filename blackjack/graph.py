@@ -300,11 +300,19 @@ class PlayerGraph:
         """
         Return the best move for given state
         """
-        max_hit_ev = self.max_evs[state]  # EV of hit and stand at the best position
-        stand_ev = self.stand_evs[state]
-        post_split_max_ev = (
-            self.max_evs[POST_SPLIT_STATE[state]] if state in POST_SPLIT_STATE else 0
+        # Absolute EV of hitting cards and standing at the best position
+        max_hit_ev = self.max_evs[state] - 1
+
+        # Absolute EV of standing
+        stand_ev = self.stand_evs[state] - 1
+
+        # Absolute EV of splitting the hand
+        post_split_relative_ev = (
+            (self.max_evs[POST_SPLIT_STATE[state]] - 1)
+            if state in POST_SPLIT_STATE
+            else -1
         )
+        post_split_max_ev = 2 * post_split_relative_ev
 
         max_ev_move = max(
             (stand_ev, MOVE_STAND),
@@ -312,23 +320,26 @@ class PlayerGraph:
             (post_split_max_ev, MOVE_SPLIT),
         )
         max_ev, best_move = max_ev_move
-        if max_ev > 1:
-            # Try to increase player bet
-            if best_move == MOVE_HIT:
+        if max_ev > 0:
+            # Try to increase player bet if EV after a single hit is greater than 1
+            # and the absolute value is greater than half the max value
+            # for example, if max EV is 1.4 and EV after a single hit is 1.1, then it is not profitable
+            # to double since absolute value of 0.4 is greater than 2 times the absolute value of 0.1
+            if best_move == MOVE_HIT and (max_ev < (2 * (self.hit_evs[state] - 1))):
                 best_move = MOVE_DOUBLE_ELSE_HIT
-        elif max_ev > 0.5:
-            # Split only if absolute loss of the 2 bets are lesser than the absolute loss of the single bet
-            # absolute loss on a single bet = 1 - max_EV
-            # absolute loss on 2 bets = 2 * (1 - max_EV)
-            if best_move == MOVE_SPLIT:
-                if (2 * (1 - max_ev)) > (1 - max_hit_ev):
-                    best_move = MOVE_HIT if max_hit_ev > stand_ev else MOVE_STAND
+        elif -0.5 < max_ev:
+            # hand is EV- but better than a surrender, in this case the split is profitable only if
+            # absolute loss of the 2 bets are lesser than the absolute loss of the single bet
+            if post_split_max_ev > max_hit_ev:
+                best_move = MOVE_SPLIT
+            else:
+                best_move = MOVE_HIT if max_hit_ev > stand_ev else MOVE_STAND
         else:
             # Surrender the hand
             if best_move == MOVE_HIT:
                 best_move = MOVE_SURRENDER_ELSE_HIT
             elif best_move == MOVE_SPLIT:
-                if post_split_max_ev > 2 * max_hit_ev:
+                if post_split_max_ev > max_hit_ev:
                     best_move = MOVE_SURRENDER_ELSE_SPLIT
                 else:
                     best_move = (

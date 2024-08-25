@@ -167,7 +167,6 @@ STATE_TO_LABEL = {
 
 # All possible hands for the bank to start with
 BANK_STARTING_CARDS = [
-    HandState.ACE,
     HandState.TWO,
     HandState.THREE,
     HandState.FOUR,
@@ -177,6 +176,7 @@ BANK_STARTING_CARDS = [
     HandState.EIGHT,
     HandState.NINE,
     HandState.FIGURE,
+    HandState.ACE,
 ]
 
 # All hand states for the bank to stand with

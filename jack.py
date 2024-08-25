@@ -48,7 +48,10 @@ def display_best_moves():
     sys.stdout.write(
         f"-----------------------------------------------------------------------------------\n"
     )
-    sys.stdout.write(f"\t2\t3\t4\t5\t6\t7\t8\t9\t10\tA\n")
+    sys.stdout.write("\t")
+    for bank_card in BANK_STARTING_CARDS:
+        sys.stdout.write(f"{str(bank_card)}\t")
+    sys.stdout.write("\n")
     sys.stdout.write(
         f"-----------------------------------------------------------------------------------\n"
     )
@@ -95,7 +98,9 @@ def display_best_moves():
     sys.stdout.write("Computing strategy expected value ...\r")
     game_ev = round(compute_game_ev(PlayerGraph), 6)
     sys.stdout.write(f"Total expected value using this strategy is: {game_ev}\n")
-    sys.stdout.write(f"(you win a total of {game_ev} every time you bet 1)\n")
+    sys.stdout.write(
+        f"(you win a total of {game_ev} every time you do an initial bet of 1)\n"
+    )
     sys.stdout.write(
         f"-----------------------------------------------------------------------------------\n"
     )
