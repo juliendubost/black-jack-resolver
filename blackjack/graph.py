@@ -300,7 +300,9 @@ class PlayerGraph:
         """
         Return the best move for given state
         """
-        max_hit_ev = self.max_evs[state]  # EV of hit and stand at the best position
+        max_hit_ev = self.max_evs[
+            state
+        ]  # EV of hitting cards and standing at the best position
         stand_ev = self.stand_evs[state]
         post_split_max_ev = (
             self.max_evs[POST_SPLIT_STATE[state]] if state in POST_SPLIT_STATE else 0
@@ -313,8 +315,15 @@ class PlayerGraph:
         )
         max_ev, best_move = max_ev_move
         if max_ev > 1:
-            # Try to increase player bet
-            if best_move == MOVE_HIT:
+            # Try to increase player bet if EV after a single hit is greater than 1
+            # and the absolute value is greater than half the max value
+            # for example, if max EV is 1.4 and EV after a single hit is 1.1, then it is not profitable
+            # to double since absolute value of 0.4 is greater than 2 times the absolute value of 0.1
+            if (
+                best_move == MOVE_HIT
+                and self.hit_evs[state] > 1
+                and ((max_ev - 1) < (2 * (self.hit_evs[state] - 1)))
+            ):
                 best_move = MOVE_DOUBLE_ELSE_HIT
         elif max_ev > 0.5:
             # Split only if absolute loss of the 2 bets are lesser than the absolute loss of the single bet
