@@ -4,7 +4,7 @@
                             _ _   
                            | A | 
                            | _ | 
-                           
+                         bank card
                            
                      _ _                _ _
                  _ _| J |           _ _| K | 
@@ -196,7 +196,7 @@ legend:
 	U-Sp: Surrender if possible else split
 -----------------------------------------------------------------------------------
 Total expected value using this strategy is: 1.057269
-(you win a total of 1.057269 every time you bet 1)
+(you win a total of 1.057269 every time you do an initial bet of 1)
 -----------------------------------------------------------------------------------
 ```
 
