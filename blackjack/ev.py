@@ -6,6 +6,12 @@ def compute_game_ev(graph_class):
     """
     Compute the whole game expected value
     graph_class: one of PlayerGraph or BasicStrategyGraph
+
+    return: positive float where:
+        0.0 mean game have no EV, like if you loose every time you bet
+        1.0 mean game is even, your return on investment is 0%
+        2.0 mean game is EV+, you return on investment is 100%, you get a total of 2 every time you bet 1
+        1.5 mean game is EV+, you return on investment is 50%, you get a total of 1.5 every time you bet 1
     """
     # compute expected value against each bank card
     player_abs_val = 0  # total absolute value for the player
@@ -54,4 +60,4 @@ def compute_game_ev(graph_class):
             else:
                 raise ValueError(f"Unknown move {best_move}")
 
-    return player_abs_val
+    return 1 + player_abs_val
