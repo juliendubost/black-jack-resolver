@@ -389,7 +389,9 @@ class PlayerGraph:
 class BasicStrategyGraph(PlayerGraph):
     def get_best_move(self, state):
         """
-        Return the best move using map of the legacy basic strategy
+        Return the best move using map of the wizard of odds strategy when dealer stand on soft 17
+        https://wizardofodds.com/games/blackjack/strategy/4-decks/
+
         map key is the bank card
         map value is the dict of best moves for each player state
         """
