@@ -1,0 +1,2 @@
+DEALER_PEEKED = False
+DEALER_HIT_ON_SOFT_17 = False

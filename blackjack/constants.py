@@ -1,4 +1,5 @@
 from enum import Enum
+from blackjack import settings
 
 
 class HandState(Enum):
@@ -10,7 +11,7 @@ class HandState(Enum):
     whereas TEN can be a single card (a ten or a figure) or a combination of cards (5 + 5 or 6 + 4)
     Values are used as
      - row and columns index in the transitions arrays
-     - abstract score of the hand, used for hands comparison (blackjack = 22 since it is winning against 21)
+     - abstract integer for the hand, this integer is relative to the force of the hand
     """
 
     BUST = 0
@@ -183,7 +184,6 @@ BANK_STARTING_CARDS = [
 BANK_STAND_STATES = [
     HandState.BLACKJACK,
     HandState.BUST,
-    HandState.SEVEN_SEVENTEEN,
     HandState.EIGHT_EIGHTEEN,
     HandState.NINE_NINETEEN,
     HandState.TEN_TWENTY,
@@ -193,6 +193,10 @@ BANK_STAND_STATES = [
     HandState.TWENTY,
     HandState.TWENTY_ONE,
 ]
+if not settings.DEALER_HIT_ON_SOFT_17:
+    # This state is added only if dealer does not hit on a soft 17
+    BANK_STAND_STATES.append(HandState.SEVEN_SEVENTEEN)
+
 
 # All hand scores for the bank to stand with
 BANK_STAND_SCORES = [

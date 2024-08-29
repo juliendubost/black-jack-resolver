@@ -1,25 +1,9 @@
 import argparse
 import sys
 
-from blackjack.constants import (
-    HandState,
-    BANK_STARTING_CARDS,
-    PLAYER_HARD_STATES,
-    PLAYER_SOFT_STATES,
-    PLAYER_PAIRS_STATES,
-    PLAYER_POSSIBLE_STATES,
-    MOVE_STAND,
-    MOVE_SPLIT,
-    MOVE_DOUBLE_ELSE_STAND,
-    MOVE_DOUBLE_ELSE_HIT,
-    MOVE_SURRENDER_ELSE_SPLIT,
-    MOVE_SURRENDER_ELSE_HIT,
-    MOVE_SURRENDER_ELSE_STAND,
-    MOVE_HIT,
-    MOVE_DOUBLE,
-)
-from blackjack.graph import PlayerGraph
-from blackjack.ev import compute_game_ev
+from blackjack import (
+    settings,
+)  # do not import anything else from blackjack package here
 
 
 def display_ev(bank_card):
@@ -28,17 +12,18 @@ def display_ev(bank_card):
     print(pg)
 
 
-def display_best_moves():
+def display_best_moves(graph_class):
+    """ "
+    graph_class: Graph class to use to compute best moved (PlayerGraph or any inherited class)
+    """
     best_moves_map = {}
 
-    for bank_card in BANK_STARTING_CARDS:
-        player_graph = PlayerGraph(bank_card)
-        player_graph.build()
+    for bank_card in constants.BANK_STARTING_CARDS:
+        graph = graph_class(bank_card)
+        graph.build()
         best_moves_map[bank_card] = {}
-        for player_state in PLAYER_POSSIBLE_STATES:
-            best_moves_map[bank_card][player_state] = player_graph.get_best_move(
-                player_state
-            )
+        for player_state in constants.PLAYER_POSSIBLE_STATES:
+            best_moves_map[bank_card][player_state] = graph.get_best_move(player_state)
     sys.stdout.write(
         f"-----------------------------------------------------------------------------------\n"
     )
@@ -49,13 +34,13 @@ def display_best_moves():
         f"-----------------------------------------------------------------------------------\n"
     )
     sys.stdout.write("\t")
-    for bank_card in BANK_STARTING_CARDS:
+    for bank_card in constants.BANK_STARTING_CARDS:
         sys.stdout.write(f"{str(bank_card)}\t")
     sys.stdout.write("\n")
     sys.stdout.write(
         f"-----------------------------------------------------------------------------------\n"
     )
-    for player_state in PLAYER_HARD_STATES:
+    for player_state in constants.PLAYER_HARD_STATES:
         sys.stdout.write(f"{str(player_state)}\t")
         for bank_card in best_moves_map.keys():
             sys.stdout.write(f"{best_moves_map[bank_card][player_state]}\t")
@@ -63,7 +48,7 @@ def display_best_moves():
     sys.stdout.write(
         f"-----------------------------------------------------------------------------------\n"
     )
-    for player_state in PLAYER_SOFT_STATES:
+    for player_state in constants.PLAYER_SOFT_STATES:
         sys.stdout.write(f"{str(player_state)}\t")
         for bank_card in best_moves_map.keys():
             sys.stdout.write(f"{best_moves_map[bank_card][player_state]}\t")
@@ -71,7 +56,7 @@ def display_best_moves():
     sys.stdout.write(
         f"-----------------------------------------------------------------------------------\n"
     )
-    for player_state in PLAYER_PAIRS_STATES:
+    for player_state in constants.PLAYER_PAIRS_STATES:
         sys.stdout.write(f"{str(player_state)}\t")
         for bank_card in best_moves_map.keys():
             sys.stdout.write(f"{best_moves_map[bank_card][player_state]}\t")
@@ -80,17 +65,23 @@ def display_best_moves():
         f"-----------------------------------------------------------------------------------\n"
     )
     sys.stdout.write("legend:\n")
-    sys.stdout.write(f"\t{MOVE_STAND}: Stand\n")
-    sys.stdout.write(f"\t{MOVE_HIT}: Hit\n")
-    sys.stdout.write(f"\t{MOVE_SPLIT}: Split\n")
-    sys.stdout.write(f"\t{MOVE_DOUBLE_ELSE_STAND}: Double if possible else stand\n")
-    sys.stdout.write(f"\t{MOVE_DOUBLE_ELSE_HIT}: Double if possible else hit\n")
+    sys.stdout.write(f"\t{constants.MOVE_STAND}: Stand\n")
+    sys.stdout.write(f"\t{constants.MOVE_HIT}: Hit\n")
+    sys.stdout.write(f"\t{constants.MOVE_SPLIT}: Split\n")
     sys.stdout.write(
-        f"\t{MOVE_SURRENDER_ELSE_STAND}: Surrender if possible else stand\n"
+        f"\t{constants.MOVE_DOUBLE_ELSE_STAND}: Double if possible else stand\n"
     )
-    sys.stdout.write(f"\t{MOVE_SURRENDER_ELSE_HIT}: Surrender if possible else hit\n")
     sys.stdout.write(
-        f"\t{MOVE_SURRENDER_ELSE_SPLIT}: Surrender if possible else split\n"
+        f"\t{constants.MOVE_DOUBLE_ELSE_HIT}: Double if possible else hit\n"
+    )
+    sys.stdout.write(
+        f"\t{constants.MOVE_SURRENDER_ELSE_STAND}: Surrender if possible else stand\n"
+    )
+    sys.stdout.write(
+        f"\t{constants.MOVE_SURRENDER_ELSE_HIT}: Surrender if possible else hit\n"
+    )
+    sys.stdout.write(
+        f"\t{constants.MOVE_SURRENDER_ELSE_SPLIT}: Surrender if possible else split\n"
     )
     sys.stdout.write(
         f"-----------------------------------------------------------------------------------\n"
@@ -107,36 +98,63 @@ def display_best_moves():
 
 
 if __name__ == "__main__":
+    epilog = """
+    compute and display expected values or best moves for given bank start card.
+    
+    commands are:\n
+      ev_table: display expected values table for given bank card
+      best_moves: display best moves instead of expected values table
+    """
+
     parser = argparse.ArgumentParser(
-        prog="jack.py",
-        description="compute and display expected values or best moves for given bank start card",
+        prog="jack.py", epilog=epilog, formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.add_argument("command", help="one of: best_moves or ev_table")
+    parser.add_argument(
+        "-card",
+        help="needed only after ev_table command, one of: A, 2, 3, 4, 5, 6, 7, 8, 9, F",
     )
     parser.add_argument(
-        "--ev-table",
-        help="display expected values table for given bank card: A, 2, 3, 4, 5, 6, 7, 8, 9, F",
-    )
-    parser.add_argument(
-        "--best-moves",
+        "--no-peek",
         action="store_true",
-        help="display best moves instead of expected values table",
+        help="disable dealer peeked when start card is a figure or an ace",
+    )
+    parser.add_argument(
+        "--hos",
+        action="store_true",
+        help="dealer hit on soft 17, default is set to false",
     )
     arguments = parser.parse_args()
 
+    settings.DEALER_HIT_ON_SOFT_17 = arguments.hos
+    settings.DEALER_PEEKED = not arguments.no_peek
+
+    # do imports after settings are set
+    from blackjack import constants
+    from blackjack.graph import PlayerGraph
+    from blackjack.ev import compute_game_ev
+
     hand_states = {
-        "A": HandState.ACE,
-        "2": HandState.TWO,
-        "3": HandState.THREE,
-        "4": HandState.FOUR,
-        "5": HandState.FIVE,
-        "6": HandState.SIX,
-        "7": HandState.SEVEN,
-        "8": HandState.EIGHT,
-        "9": HandState.NINE,
-        "F": HandState.FIGURE,
+        "A": constants.HandState.ACE,
+        "2": constants.HandState.TWO,
+        "3": constants.HandState.THREE,
+        "4": constants.HandState.FOUR,
+        "5": constants.HandState.FIVE,
+        "6": constants.HandState.SIX,
+        "7": constants.HandState.SEVEN,
+        "8": constants.HandState.EIGHT,
+        "9": constants.HandState.NINE,
+        "F": constants.HandState.FIGURE,
     }
 
-    if arguments.ev_table is not None:
-        hand_state = hand_states.get(arguments.ev_table)
+    if arguments.command == "ev_table":
+        if arguments.card not in hand_states:
+            sys.stdout.write(
+                f"unknown card '{arguments.card}' or no card specified (use -c argument) \n"
+            )
+            sys.exit(1)
+
+        hand_state = hand_states.get(arguments.card)
 
         if hand_state is None:
             print(
@@ -145,5 +163,9 @@ if __name__ == "__main__":
 
         display_ev(hand_state)
 
-    if arguments.best_moves is True:
-        display_best_moves()
+    elif arguments.command == "best_moves":
+        display_best_moves(PlayerGraph)
+
+    else:
+        sys.stdout.write(f"unknown command {arguments.command}\n")
+        sys.exit(1)
