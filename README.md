@@ -23,13 +23,80 @@
 Black Jack resolver is a simple python app that compute and display expected values and best player move for each bank's start cards
 
 Solving is determinist and based on a [directed acyclic graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) representation of hand states
-A monte-carlo validation is implemented as unit tests.
+A monte-carlo validation is implemented as unit tests to check some pre-computed values. Not the whole game have been modeled using a montecarlo validation
 
 Hypothesis are:
-- An infinite number of decks, at any time the probability of drawing card that is not ten-valued is 1/13 and 4/13 for a 10-valued card
-- Dealer (aka bank) hit under 17 and stop on any soft or hard hand with value greater or equal than 17
-- Infinite split allowed for player hand
-- Best move determination does not consider the possibility to double after a split. This can result in a slightly under-estimated split expected value in some cases
+- An infinite number of decks, at any time the probability of drawing card that is not ten-valued is 1/13 and 4/13 for a 10-valued card. Impact of this is judged insignificant as long as the house plays with 4+ decks
+- No possibility to double after a split, this is not yet implemented because the impact on EV is judged as very low
+- Dealer's peeked or not, controllable through a command line option. Dealer's peeked is mostly use in America where dealer stop the game before serving players if the face down card would reveal a blackjack
+- Hit on soft 17 or not, controllable through a command line option.
+- No limitations when you split a pair of Ace, you can still hit cards or make a blackjack after the split (most french casinos limit aces split to only 1 card and no blackjack)
+
+Please note that the results presented here have not been validated by an external source. Strategy is very close from the one suggested by [wizard of the odds](https://wizardofodds.com/games/blackjack/strategy/4-decks/) with, on the paper, a slight improvement.
+Also, at the moment the pocket 5, 10-valued and soft 12 lines are missing from wizard of the odds strategy, so I took the recommended values from wikipedia
+
+Here are the computed game expected values depending on house rules and strategies:
+
+| dealer's peeked    | hit on soft 17       | This resolver strategy EV    | Wizard of the odds strategy EV* |  
+|--------------------|----------------------|------------------------------|---------------------------------|
+|                    |                      | 1.062291                     | not available                   |
+| X                  |                      | 1.069313                     | 1.067432                        |
+|                    | X                    | 1.060393                     | not available                   |
+| X                  | X                    | 1.068152                     | 1.067637                        |
+
+`* using the case where double after a split is not allowed`
+
+If these results are correct, blackjack game have a positive expected value, meaning it's a wining game for the player and a loosing game for the bank if a good enough strategy is used by the player.
+
+All best moves and expected values tables computable using this resolver are available in the `tables` directory.
+
+# EV tables
+
+Best moves table (see below) is issued from the EV tables for each bank card and player's start hand probabilities (see the `START_HAND_WEIGHTS` variable in `blackjack/constants.py`)
+
+EV table approach is to compute, for each possible state:
+- the standing EV
+- the EV of hitting only 1 card then standing
+- the maximum EV you can reach from this state using the best strategy
+
+In the example below, best move is to surrender, because:
+- the maximum EV you can reach from this state is `0.493`.
+- if you stand, EV is `0.231`
+- if you surrender, you get an EV of `0.5` (dealer take half of your bet) 
+
+Consequently, best move is to surrender if possible, else hit.
+```text
+-------------------------------------------------------------------------------
+Player state        EV stand       EV hit & stand      Max EV         Best move      
+-------------------------------------------------------------------------------
+12                  0.231          0.437               0.493          U-H   
+```
+
+In the other example, best move is to double if possible, else stand, because:
+- stand EV is `0.828`
+- max EV is `1.154`, net gain is `0.154`
+- hit only 1 card then stand EV is `1.118`, net gain if you double from here is 2 times `0.118` = `0.236`
+
+Consequently, because `0.236` is greater than `0.154` the maximum net gain is obtained using a double strategy.
+
+If the EV of hitting only 1 card and standing would have been lesser than `0.154`, best move would have be to hit.
+
+
+```text
+-------------------------------------------------------------------------------
+Player state        EV stand       EV hit & stand      Max EV         Best move      
+-------------------------------------------------------------------------------
+9                   0.828          1.118               1.154          D-H            
+```
+
+# Contributions
+
+If you want to contribute, feel free to suggest and/or ask any questions.
+
+Here are some ideas of things that could be done: 
+- an external review of this code base to validate the approach.
+- a full montecarlo game model to validate strategy expected values.
+- a way to estimate the game variance to determine how many hands should be played to ensure player have a good chance to be wining.
 
 
 # Install using poetry
@@ -46,7 +113,6 @@ pytest -s  # run on a single thread and display logs
 pytest -n 8  # run on 8 cores using pytest-xdist
 ```
 
-
 # Usage 
 Activate poetry env
 
@@ -54,43 +120,47 @@ Activate poetry env
 poetry shell
 ```
 
-Then run `jack.py` to display expected values and best move table for a given bank card.
+Then run `jack.py` to display expected values for a given bank card or best moves table
 
 For example, to display best moves table and strategy total expected value, use:
 
 ```shell
-python jack.py --best-moves
+python jack.py best_moves
 ```
 
-Output is: 
+Default is to have the dealer's peeked option and stand on soft 17 .
+
+This can be changed options `--no-peek` (disable dealer's peeked) and `--hos` (activate hit on soft 17) options.
+
+Example output for standard use case (no hit on soft 17 and dealer peeked): 
 
 ```text
 -----------------------------------------------------------------------------------
 Player best move for each bank card (first line) and each state (first column)
 -----------------------------------------------------------------------------------
-	2	3	4	5	6	7	8	9	10	A
+	2	3	4	5	6	7	8	9	F	A	
 -----------------------------------------------------------------------------------
 20	S	S	S	S	S	S	S	S	S	S	
 19	S	S	S	S	S	S	S	S	S	S	
 18	S	S	S	S	S	S	S	S	S	S	
 17	S	S	S	S	S	S	S	S	S	U-S	
 16	S	S	S	S	S	H	H	U-H	U-H	U-H	
-15	S	S	S	S	S	H	H	H	U-H	U-H	
-14	S	S	S	S	S	H	H	H	U-H	U-H	
+15	S	S	S	S	S	H	H	H	H	U-H	
+14	S	S	S	S	S	H	H	H	H	U-H	
 13	S	S	S	S	S	H	H	H	H	U-H	
 12	H	H	S	S	S	H	H	H	H	U-H	
-11	D-H	D-H	D-H	D-H	D-H	D-H	D-H	D-H	H	H	
+11	D-H	D-H	D-H	D-H	D-H	D-H	D-H	D-H	D-H	H	
 10	D-H	D-H	D-H	D-H	D-H	D-H	D-H	D-H	H	H	
 9	H	D-H	D-H	D-H	D-H	H	H	H	H	H	
 8	H	H	H	H	H	H	H	H	H	H	
-7	H	H	H	H	H	H	H	H	H	U-H	
-6	H	H	H	H	H	H	H	H	H	U-H	
+7	H	H	H	H	H	H	H	H	H	H	
+6	H	H	H	H	H	H	H	H	H	H	
 5	H	H	H	H	H	H	H	H	H	H	
 4	H	H	H	H	H	H	H	H	H	H	
 -----------------------------------------------------------------------------------
 10-20	S	S	S	S	S	S	S	S	S	S	
 9-19	S	S	S	S	S	S	S	S	S	S	
-8-18	S	S	S	S	S	S	S	H	H	H	
+8-18	S	D-S	D-S	D-S	D-S	S	S	H	H	H	
 7-17	H	D-H	D-H	D-H	D-H	H	H	H	H	H	
 6-16	H	H	D-H	D-H	D-H	H	H	H	H	H	
 5-15	H	H	H	D-H	D-H	H	H	H	H	H	
@@ -101,13 +171,13 @@ Player best move for each bank card (first line) and each state (first column)
 1-1	Sp	Sp	Sp	Sp	Sp	Sp	Sp	Sp	Sp	Sp	
 10-10	S	S	S	S	S	S	S	S	S	S	
 9-9	Sp	Sp	Sp	Sp	Sp	S	Sp	Sp	S	S	
-8-8	Sp	Sp	Sp	Sp	Sp	Sp	Sp	Sp	U-H	U-H	
-7-7	Sp	Sp	Sp	Sp	Sp	Sp	H	H	U-H	U-H	
+8-8	Sp	Sp	Sp	Sp	Sp	Sp	Sp	Sp	Sp	U-H	
+7-7	Sp	Sp	Sp	Sp	Sp	Sp	H	H	H	U-H	
 6-6	H	Sp	Sp	Sp	Sp	H	H	H	H	U-H	
 5-5	D-H	D-H	D-H	D-H	D-H	D-H	D-H	D-H	H	H	
 4-4	H	H	H	H	H	H	H	H	H	H	
-3-3	H	H	Sp	Sp	Sp	Sp	H	H	H	U-H	
-2-2	H	H	Sp	Sp	Sp	Sp	H	H	H	H
+3-3	H	H	Sp	Sp	Sp	Sp	H	H	H	H	
+2-2	H	H	Sp	Sp	Sp	Sp	H	H	H	H	
 -----------------------------------------------------------------------------------
 legend:
 	S: Stand
@@ -119,15 +189,16 @@ legend:
 	U-H: Surrender if possible else hit
 	U-Sp: Surrender if possible else split
 -----------------------------------------------------------------------------------
-Total expected value using this strategy is: 1.062074
-(you win a total of 1.062074 every time you do an initial bet of 1)
+Total expected value using this strategy if double, split and surrender are allowed is: 1.069313
+(you win a total of 1.069313 every time you do an initial bet of 1)
 -----------------------------------------------------------------------------------
 ```
 
-Or display expected values table for an Ace on the bank, using:
+
+To display expected values table for an Ace on the bank, use:
 
 ```text
-python jack.py --ev-table A
+python jack.py --ev-table -card A
 ```
 
 Possible values are: `2`, `3`,`4`,`5`,`6`,`7`,`8`,`9`,`F` (a ten-valued card),  
@@ -199,450 +270,5 @@ Legend:
     U-S: Surrender if possible else stand
     U-H: Surrender if possible else hit
     U-Sp: Surrender if possible else split
--------------------------------------------------------------------------------
-```
-
-
-Here are all the expected values table for other bank cards:
-
-```text
--------------------------------------------------------------------------------
-Bank card: 2
--------------------------------------------------------------------------------
-Player state        EV stand       EV hit & stand      Max EV         Best move      
--------------------------------------------------------------------------------
-2                   0.707          0.707               0.924          H              
-3                   0.707          0.707               0.899          H              
-4                   0.707          0.707               0.885          H              
-5                   0.707          0.707               0.871          H              
-6                   0.707          0.718               0.859          H              
-7                   0.707          0.782               0.89           H              
-8                   0.707          0.897               0.978          H              
-9                   0.707          1.03                1.074          H              
-10                  0.707          1.179               1.182          D-H            
-F                   0.707          1.227               1.23           D-H            
-11                  0.707          1.235               1.238          D-H            
-12                  0.707          0.746               0.746          H              
-13                  0.707          0.692               0.707          S              
-14                  0.707          0.638               0.707          S              
-15                  0.707          0.583               0.707          S              
-16                  0.707          0.529               0.707          S              
-17                  0.847          0.464               0.847          S              
-18                  1.121          0.378               1.121          S              
-19                  1.386          0.271               1.386          S              
-20                  1.64           0.145               1.64           S              
-A                   0.707          1.425               1.56           D-H            
-2-12                0.707          0.964               1.082          H              
-3-13                0.707          0.964               1.046          H              
-4-14                0.707          0.964               1.022          H              
-5-15                0.707          0.964               1.0            H              
-6-16                0.707          0.964               0.979          H              
-7-17                0.847          0.996               0.999          H              
-8-18                1.121          1.06                1.121          S              
-9-19                1.386          1.121               1.386          S              
-10-20               1.64           1.179               1.64           S              
-21                  1.882          0                   1.882          S              
-1-1                 0.707          0.964               1.082          Sp             
-2-2                 0.707          0.707               0.885          H              
-3-3                 0.707          0.718               0.859          H              
-4-4                 0.707          0.897               0.978          H              
-5-5                 0.707          1.179               1.182          D-H            
-6-6                 0.707          0.746               0.746          H              
-7-7                 0.707          0.638               0.707          Sp             
-8-8                 0.707          0.529               0.707          Sp             
-9-9                 1.121          0.378               1.121          Sp             
-10-10               1.64           0.145               1.64           S              
-BJ                  2.5            0                   2.5            S    
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
-Bank card: 3
--------------------------------------------------------------------------------
-Player state        EV stand       EV hit & stand      Max EV         Best move      
--------------------------------------------------------------------------------
-2                   0.747          0.747               0.95           H              
-3                   0.747          0.747               0.931          H              
-4                   0.747          0.747               0.917          H              
-5                   0.747          0.747               0.904          H              
-6                   0.747          0.758               0.892          H              
-7                   0.747          0.82                0.923          H              
-8                   0.747          0.932               1.008          H              
-9                   0.747          1.06                1.101          D-H            
-10                  0.747          1.204               1.206          D-H            
-F                   0.747          1.252               1.253          D-H            
-11                  0.747          1.259               1.26           D-H            
-12                  0.747          0.766               0.766          H              
-13                  0.747          0.709               0.747          S              
-14                  0.747          0.651               0.747          S              
-15                  0.747          0.594               0.747          S              
-16                  0.747          0.536               0.747          S              
-17                  0.882          0.468               0.882          S              
-18                  1.148          0.38                1.148          S              
-19                  1.404          0.272               1.404          S              
-20                  1.65           0.145               1.65           S              
-A                   0.747          1.448               1.577          D-H            
-2-12                0.747          0.996               1.103          H              
-3-13                0.747          0.996               1.074          H              
-4-14                0.747          0.996               1.051          H              
-5-15                0.747          0.996               1.029          H              
-6-16                0.747          0.996               1.009          H              
-7-17                0.882          1.027               1.029          D-H            
-8-18                1.148          1.089               1.148          S              
-9-19                1.404          1.148               1.404          S              
-10-20               1.65           1.204               1.65           S              
-21                  1.885          0                   1.885          S              
-1-1                 0.747          0.996               1.103          Sp             
-2-2                 0.747          0.747               0.917          H              
-3-3                 0.747          0.758               0.892          H              
-4-4                 0.747          0.932               1.008          H              
-5-5                 0.747          1.204               1.206          D-H            
-6-6                 0.747          0.766               0.766          Sp             
-7-7                 0.747          0.651               0.747          Sp             
-8-8                 0.747          0.536               0.747          Sp             
-9-9                 1.148          0.38                1.148          Sp             
-10-10               1.65           0.145               1.65           S              
-BJ                  2.5            0                   2.5            S      
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
-Bank card: 4
--------------------------------------------------------------------------------
-Player state        EV stand       EV hit & stand      Max EV         Best move      
--------------------------------------------------------------------------------
-3                   0.789          0.789               0.964          H              
-4                   0.789          0.789               0.951          H              
-5                   0.789          0.789               0.939          H              
-6                   0.789          0.799               0.927          H              
-7                   0.789          0.859               0.957          H              
-8                   0.789          0.967               1.039          H              
-9                   0.789          1.091               1.129          D-H            
-10                  0.789          1.23                1.23           D-H            
-F                   0.789          1.277               1.277          D-H            
-11                  0.789          1.283               1.283          D-H            
-12                  0.789          0.786               0.789          S              
-13                  0.789          0.726               0.789          S              
-14                  0.789          0.665               0.789          S              
-15                  0.789          0.604               0.789          S              
-16                  0.789          0.544               0.789          S              
-17                  0.919          0.473               0.919          S              
-18                  1.176          0.383               1.176          S              
-19                  1.423          0.273               1.423          S              
-20                  1.661          0.145               1.661          S              
-A                   0.789          1.471               1.594          D-H            
-2-12                0.789          1.029               1.127          H              
-3-13                0.789          1.029               1.102          H              
-4-14                0.789          1.029               1.08           H              
-5-15                0.789          1.029               1.059          H              
-6-16                0.789          1.029               1.04           D-H            
-7-17                0.919          1.059               1.059          D-H            
-8-18                1.176          1.119               1.176          S              
-9-19                1.423          1.176               1.423          S              
-10-20               1.661          1.23                1.661          S              
-21                  1.889          0                   1.889          S              
-1-1                 0.789          1.029               1.127          Sp             
-2-2                 0.789          0.789               0.951          Sp             
-3-3                 0.789          0.799               0.927          Sp             
-4-4                 0.789          0.967               1.039          H              
-5-5                 0.789          1.23                1.23           D-H            
-6-6                 0.789          0.786               0.789          Sp             
-7-7                 0.789          0.665               0.789          Sp             
-8-8                 0.789          0.544               0.789          Sp             
-9-9                 1.176          0.383               1.176          Sp             
-10-10               1.661          0.145               1.661          S              
-BJ                  2.5            0                   2.5            S     
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
-Bank card: 5
--------------------------------------------------------------------------------
-Player state        EV stand       EV hit & stand      Max EV         Best move      
--------------------------------------------------------------------------------
-2                   0.828          0.828               1.009          H              
-3                   0.828          0.828               0.996          H              
-4                   0.828          0.828               0.983          H              
-5                   0.828          0.828               0.971          H              
-6                   0.828          0.837               0.96           H              
-7                   0.828          0.894               0.988          H              
-8                   0.828          0.997               1.067          H              
-9                   0.828          1.118               1.154          D-H            
-10                  0.828          1.253               1.253          D-H            
-F                   0.828          1.3                 1.3            D-H            
-11                  0.828          1.304               1.304          D-H            
-12                  0.828          0.804               0.828          S              
-13                  0.828          0.74                0.828          S              
-14                  0.828          0.677               0.828          S              
-15                  0.828          0.613               0.828          S              
-16                  0.828          0.549               0.828          S              
-17                  0.95           0.476               0.95           S              
-18                  1.196          0.384               1.196          S              
-19                  1.437          0.274               1.437          S              
-20                  1.669          0.145               1.669          S              
-A                   0.828          1.491               1.61           D-H            
-2-12                0.828          1.059               1.153          H              
-3-13                0.828          1.059               1.129          H              
-4-14                0.828          1.059               1.108          D-H            
-5-15                0.828          1.059               1.088          D-H            
-6-16                0.828          1.059               1.069          D-H            
-7-17                0.95           1.087               1.087          D-H            
-8-18                1.196          1.144               1.196          S              
-9-19                1.437          1.199               1.437          S              
-10-20               1.669          1.253               1.669          S              
-21                  1.891          0                   1.891          S              
-1-1                 0.828          1.059               1.153          Sp             
-2-2                 0.828          0.828               0.983          Sp             
-3-3                 0.828          0.837               0.96           Sp             
-4-4                 0.828          0.997               1.067          H              
-5-5                 0.828          1.253               1.253          D-H            
-6-6                 0.828          0.804               0.828          Sp             
-7-7                 0.828          0.677               0.828          Sp             
-8-8                 0.828          0.549               0.828          Sp             
-9-9                 1.196          0.384               1.196          Sp             
-10-10               1.669          0.145               1.669          S              
-BJ                  2.5            0                   2.5            S           
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
-Bank card: 6
--------------------------------------------------------------------------------
-Player state        EV stand       EV hit & stand      Max EV         Best move      
--------------------------------------------------------------------------------
-2                   0.846          0.846               1.039          H              
-3                   0.846          0.846               1.024          H              
-4                   0.846          0.846               1.011          H              
-5                   0.846          0.846               0.999          H              
-6                   0.846          0.859               0.987          H              
-7                   0.846          0.931               1.029          H              
-8                   0.846          1.044               1.115          H              
-9                   0.846          1.159               1.196          D-H            
-10                  0.846          1.288               1.288          D-H            
-F                   0.846          1.334               1.334          D-H            
-11                  0.846          1.334               1.334          D-H            
-12                  0.846          0.829               0.846          S              
-13                  0.846          0.764               0.846          S              
-14                  0.846          0.699               0.846          S              
-15                  0.846          0.634               0.846          S              
-16                  0.846          0.569               0.846          S              
-17                  1.012          0.491               1.012          S              
-18                  1.283          0.393               1.283          S              
-19                  1.496          0.277               1.496          S              
-20                  1.704          0.146               1.704          S              
-A                   0.846          1.517               1.64           D-H            
-2-12                0.846          1.09                1.186          H              
-3-13                0.846          1.09                1.162          D-H            
-4-14                0.846          1.09                1.139          D-H            
-5-15                0.846          1.09                1.118          D-H            
-6-16                0.846          1.09                1.099          D-H            
-7-17                1.012          1.128               1.128          D-H            
-8-18                1.283          1.191               1.283          S              
-9-19                1.496          1.24                1.496          S              
-10-20               1.704          1.288               1.704          S              
-21                  1.903          0                   1.903          S              
-1-1                 0.846          1.09                1.186          Sp             
-2-2                 0.846          0.846               1.011          Sp             
-3-3                 0.846          0.859               0.987          Sp             
-4-4                 0.846          1.044               1.115          H              
-5-5                 0.846          1.288               1.288          D-H            
-6-6                 0.846          0.829               0.846          Sp             
-7-7                 0.846          0.699               0.846          Sp             
-8-8                 0.846          0.569               0.846          Sp             
-9-9                 1.283          0.393               1.283          Sp             
-10-10               1.704          0.146               1.704          S              
-BJ                  2.5            0                   2.5            S     
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
-Bank card: 7
--------------------------------------------------------------------------------
-Player state        EV stand       EV hit & stand      Max EV         Best move      
--------------------------------------------------------------------------------
-2                   0.525          0.525               0.973          H              
-3                   0.525          0.525               0.943          H              
-4                   0.525          0.525               0.912          H              
-5                   0.525          0.525               0.885          H              
-6                   0.525          0.553               0.848          H              
-7                   0.525          0.705               0.931          H              
-8                   0.525          0.906               1.082          H              
-9                   0.525          1.052               1.172          H              
-10                  0.525          1.196               1.257          D-H            
-F                   0.525          1.24                1.301          D-H            
-11                  0.525          1.231               1.292          D-H            
-12                  0.525          0.747               0.787          H              
-13                  0.525          0.706               0.731          H              
-14                  0.525          0.666               0.679          H              
-15                  0.525          0.626               0.63           H              
-16                  0.525          0.585               0.585          H              
-17                  0.893          0.517               0.893          S              
-18                  1.4            0.409               1.4            S              
-19                  1.616          0.285               1.616          S              
-20                  1.773          0.148               1.773          S              
-A                   0.525          1.408               1.634          D-H            
-2-12                0.525          0.908               1.165          H              
-3-13                0.525          0.908               1.122          H              
-4-14                0.525          0.908               1.08           H              
-5-15                0.525          0.908               1.037          H              
-6-16                0.525          0.908               0.995          H              
-7-17                0.893          0.993               1.054          H              
-8-18                1.4            1.11                1.4            S              
-9-19                1.616          1.16                1.616          S              
-10-20               1.773          1.196               1.773          S              
-21                  1.926          0                   1.926          S              
-1-1                 0.525          0.908               1.165          Sp             
-2-2                 0.525          0.525               0.912          Sp             
-3-3                 0.525          0.553               0.848          Sp             
-4-4                 0.525          0.906               1.082          H              
-5-5                 0.525          1.196               1.257          D-H            
-6-6                 0.525          0.747               0.787          H              
-7-7                 0.525          0.666               0.679          Sp             
-8-8                 0.525          0.585               0.585          Sp             
-9-9                 1.4            0.409               1.4            S              
-10-10               1.773          0.148               1.773          S              
-BJ                  2.5            0                   2.5            S  
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
-Bank card: 8
--------------------------------------------------------------------------------
-Player state        EV stand       EV hit & stand      Max EV         Best move      
--------------------------------------------------------------------------------
-2                   0.489          0.489               0.897          H              
-3                   0.489          0.489               0.869          H              
-4                   0.489          0.489               0.841          H              
-5                   0.489          0.489               0.816          H              
-6                   0.489          0.499               0.783          H              
-7                   0.489          0.576               0.789          H              
-8                   0.489          0.774               0.94           H              
-9                   0.489          0.987               1.098          H              
-10                  0.489          1.143               1.198          D-H            
-F                   0.489          1.187               1.242          D-H            
-11                  0.489          1.175               1.23           D-H            
-12                  0.489          0.692               0.728          H              
-13                  0.489          0.655               0.676          H              
-14                  0.489          0.617               0.628          H              
-15                  0.489          0.579               0.583          H              
-16                  0.489          0.542               0.542          H              
-17                  0.618          0.494               0.618          S              
-18                  1.106          0.409               1.106          S              
-19                  1.594          0.286               1.594          S              
-20                  1.792          0.149               1.792          S              
-A                   0.489          1.351               1.576          D-H            
-2-12                0.489          0.843               1.095          H              
-3-13                0.489          0.843               1.054          H              
-4-14                0.489          0.843               1.013          H              
-5-15                0.489          0.843               0.973          H              
-6-16                0.489          0.843               0.933          H              
-7-17                0.618          0.872               0.927          H              
-8-18                1.106          0.985               1.106          S              
-9-19                1.594          1.098               1.594          S              
-10-20               1.792          1.143               1.792          S              
-21                  1.931          0                   1.931          S              
-1-1                 0.489          0.843               1.095          Sp             
-2-2                 0.489          0.489               0.841          H              
-3-3                 0.489          0.499               0.783          H              
-4-4                 0.489          0.774               0.94           H              
-5-5                 0.489          1.143               1.198          D-H            
-6-6                 0.489          0.692               0.728          H              
-7-7                 0.489          0.617               0.628          H              
-8-8                 0.489          0.542               0.542          Sp             
-9-9                 1.106          0.409               1.106          Sp             
-10-10               1.792          0.149               1.792          S              
-BJ                  2.5            0                   2.5            S 
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
-Bank card: 9
--------------------------------------------------------------------------------
-Player state        EV stand       EV hit & stand      Max EV         Best move      
--------------------------------------------------------------------------------
-2                   0.457          0.457               0.81           H              
-3                   0.457          0.457               0.785          H              
-4                   0.457          0.457               0.759          H              
-5                   0.457          0.457               0.737          H              
-6                   0.457          0.466               0.707          H              
-7                   0.457          0.521               0.715          H              
-8                   0.457          0.641               0.79           H              
-9                   0.457          0.85                0.948          H              
-10                  0.457          1.072               1.117          D-H            
-F                   0.457          1.115               1.16           D-H            
-11                  0.457          1.114               1.158          D-H            
-12                  0.457          0.631               0.66           H              
-13                  0.457          0.596               0.613          H              
-14                  0.457          0.561               0.569          H              
-15                  0.457          0.526               0.528          H              
-16                  0.457          0.491               0.491          U-H            
-17                  0.577          0.446               0.577          S              
-18                  0.817          0.383               0.817          S              
-19                  1.288          0.284               1.288          S              
-20                  1.758          0.149               1.758          S              
-A                   0.457          1.286               1.494          D-H            
-2-12                0.457          0.772               1.0            H              
-3-13                0.457          0.772               0.962          H              
-4-14                0.457          0.772               0.925          H              
-5-15                0.457          0.772               0.888          H              
-6-16                0.457          0.772               0.851          H              
-7-17                0.577          0.8                 0.85           H              
-8-18                0.817          0.855               0.899          H              
-9-19                1.288          0.964               1.288          S              
-10-20               1.758          1.072               1.758          S              
-21                  1.939          0                   1.939          S              
-1-1                 0.457          0.772               1.0            Sp             
-2-2                 0.457          0.457               0.759          H              
-3-3                 0.457          0.466               0.707          H              
-4-4                 0.457          0.641               0.79           H              
-5-5                 0.457          1.072               1.117          D-H            
-6-6                 0.457          0.631               0.66           H              
-7-7                 0.457          0.561               0.569          H              
-8-8                 0.457          0.491               0.491          Sp             
-9-9                 0.817          0.383               0.817          Sp             
-10-10               1.758          0.149               1.758          S              
-BJ                  2.5            0                   2.5            S    
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
-Bank card: F
--------------------------------------------------------------------------------
-Player state        EV stand       EV hit & stand      Max EV         Best move      
--------------------------------------------------------------------------------
-2                   0.424          0.424               0.7            H              
-3                   0.424          0.424               0.678          H              
-4                   0.424          0.424               0.656          H              
-5                   0.424          0.424               0.637          H              
-6                   0.424          0.433               0.611          H              
-7                   0.424          0.484               0.629          H              
-8                   0.424          0.578               0.693          H              
-9                   0.424          0.708               0.782          H              
-10                  0.424          0.919               0.946          H              
-F                   0.424          0.963               0.991          H              
-11                  0.424          1.006               1.033          H              
-12                  0.424          0.555               0.571          H              
-13                  0.424          0.523               0.531          H              
-14                  0.424          0.49                0.493          U-H            
-15                  0.424          0.457               0.457          U-H            
-16                  0.424          0.425               0.425          U-H            
-17                  0.536          0.384               0.536          S              
-18                  0.758          0.325               0.758          S              
-19                  0.981          0.25                0.981          S              
-20                  1.435          0.139               1.435          S              
-A                   0.424          1.182               1.343          D-H            
-2-12                0.424          0.686               0.858          H              
-3-13                0.424          0.686               0.826          H              
-4-14                0.424          0.686               0.794          H              
-5-15                0.424          0.686               0.763          H              
-6-16                0.424          0.686               0.732          H              
-7-17                0.536          0.712               0.741          H              
-8-18                0.758          0.763               0.79           H              
-9-19                0.981          0.814               0.981          S              
-10-20               1.435          0.919               1.435          S              
-21                  1.812          0                   1.812          S              
-1-1                 0.424          0.686               0.858          Sp             
-2-2                 0.424          0.424               0.656          H              
-3-3                 0.424          0.433               0.611          H              
-4-4                 0.424          0.578               0.693          H              
-5-5                 0.424          0.919               0.946          H              
-6-6                 0.424          0.555               0.571          H              
-7-7                 0.424          0.49                0.493          U-H            
-8-8                 0.424          0.425               0.425          U-H            
-9-9                 0.758          0.325               0.758          S              
-10-10               1.435          0.139               1.435          S              
-BJ                  2.385          0                   2.385          S     
 -------------------------------------------------------------------------------
 ```

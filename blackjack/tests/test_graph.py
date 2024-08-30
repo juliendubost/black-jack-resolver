@@ -45,10 +45,6 @@ class TestBankTransitions:
 
 
 class TestPlayerGraph:
-    """
-    Use one method for each card to enable pytest-xdist parallelization
-    """
-
     def assert_stand_ev(self, bank_start_card):
         card_generator = CardGenerator()
         sys.stdout.write(
@@ -73,6 +69,7 @@ class TestPlayerGraph:
         """
         Assert determinist stand expected values are correct using a montecarlo validation
         for an ace on bank side
+        Use one method for each card to enable pytest-xdist parallelization
         """
         self.assert_stand_ev(HandState.ACE)
 
@@ -80,6 +77,7 @@ class TestPlayerGraph:
         """
         Assert determinist stand expected values are correct using a montecarlo validation
         for a figure on bank side
+        Use one method for each card to enable pytest-xdist parallelization
         """
         self.assert_stand_ev(HandState.FIGURE)
 
@@ -87,6 +85,7 @@ class TestPlayerGraph:
         """
         Assert determinist stand expected values are correct using a montecarlo validation
         for a nine on bank side
+        Use one method for each card to enable pytest-xdist parallelization
         """
         self.assert_stand_ev(HandState.NINE)
 
@@ -94,6 +93,7 @@ class TestPlayerGraph:
         """
         Assert determinist stand expected values are correct using a montecarlo validation
         for an eight on bank side
+        Use one method for each card to enable pytest-xdist parallelization
         """
         self.assert_stand_ev(HandState.EIGHT)
 
@@ -101,6 +101,7 @@ class TestPlayerGraph:
         """
         Assert determinist stand expected values are correct using a montecarlo validation
         for a seven on bank side
+        Use one method for each card to enable pytest-xdist parallelization
         """
         self.assert_stand_ev(HandState.SEVEN)
 
@@ -108,6 +109,7 @@ class TestPlayerGraph:
         """
         Assert determinist stand expected values are correct using a montecarlo validation
         for a six on bank side
+        Use one method for each card to enable pytest-xdist parallelization
         """
         self.assert_stand_ev(HandState.SIX)
 
@@ -115,6 +117,7 @@ class TestPlayerGraph:
         """
         Assert determinist stand expected values are correct using a montecarlo validation
         for a five on bank side
+        Use one method for each card to enable pytest-xdist parallelization
         """
         self.assert_stand_ev(HandState.FIVE)
 
@@ -122,6 +125,7 @@ class TestPlayerGraph:
         """
         Assert determinist stand expected values are correct using a montecarlo validation
         for a four on bank side
+        Use one method for each card to enable pytest-xdist parallelization
         """
         self.assert_stand_ev(HandState.FOUR)
 
@@ -129,6 +133,7 @@ class TestPlayerGraph:
         """
         Assert determinist stand expected values are correct using a montecarlo validation
         for a three on bank side
+        Use one method for each card to enable pytest-xdist parallelization
         """
         self.assert_stand_ev(HandState.THREE)
 
@@ -136,6 +141,7 @@ class TestPlayerGraph:
         """
         Assert determinist stand expected values are correct using a montecarlo validation
         for a two on bank side
+        Use one method for each card to enable pytest-xdist parallelization
         """
         self.assert_stand_ev(HandState.TWO)
 

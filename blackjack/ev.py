@@ -1,5 +1,5 @@
-from blackjack.graph import PlayerGraph
 from blackjack import constants
+from blackjack import settings
 
 
 def compute_game_ev(graph_class):
@@ -15,10 +15,51 @@ def compute_game_ev(graph_class):
     """
     # compute expected value against each bank card
     player_abs_val = 0  # total absolute value for the player
-    for bank_card in constants.BANK_STARTING_CARDS:
-        bank_card_probability = (
-            1 / 13 if bank_card != constants.HandState.FIGURE else 4 / 13
+
+    bank_starting_card_probabilities = {}
+    if settings.DEALER_PEEKED:
+        # Add an abstract blackjack hand to compensate the miss of blackjack possibility for ace and figure EV table
+        # if dealer peeked option is ON
+        black_jack_probability_on_ace_or_figure = (
+            1 / 13 * 4 / 13
+        )  # probability to have an ACE then a ten-valued card or vice versa
+        bank_starting_card_probabilities[constants.HandState.ACE] = (
+            1 / 13 - black_jack_probability_on_ace_or_figure
         )
+        bank_starting_card_probabilities[constants.HandState.TWO] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.THREE] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.FOUR] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.FIVE] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.SIX] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.SEVEN] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.EIGHT] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.NINE] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.FIGURE] = (
+            4 / 13 - black_jack_probability_on_ace_or_figure
+        )
+        bank_starting_card_probabilities[constants.HandState.BLACKJACK] = (
+            2 * black_jack_probability_on_ace_or_figure
+        )
+    else:
+        bank_starting_card_probabilities[constants.HandState.ACE] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.TWO] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.THREE] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.FOUR] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.FIVE] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.SIX] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.SEVEN] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.EIGHT] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.NINE] = 1 / 13
+        bank_starting_card_probabilities[constants.HandState.FIGURE] = 4 / 13
+
+    for bank_card, bank_card_probability in bank_starting_card_probabilities.items():
+        # special case for special blacjack bank card
+        if bank_card == constants.HandState.BLACKJACK:
+            for player_hand, probability in constants.START_HAND_PROBABILITIES.items():
+                if player_hand != constants.HandState.BLACKJACK:
+                    player_abs_val += -bank_card_probability * probability
+            continue
+
         player_graph = graph_class(bank_card)
         player_graph.build()
         for player_hand, probability in constants.START_HAND_PROBABILITIES.items():

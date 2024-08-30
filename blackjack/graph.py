@@ -23,6 +23,7 @@ from blackjack.constants import (
     MOVE_SURRENDER_ELSE_HIT,
     MOVE_SURRENDER_ELSE_STAND,
 )
+from blackjack import settings
 
 
 def score_ev(player_state, bank_state):
@@ -159,7 +160,7 @@ class BankTransitions:
         dict keys are the bank start cards
         dict values are a dict where key is the finale score and value is the probability
 
-        Here are the values in a tabular view
+        Here are the values in a tabular view (hit on soft 17 is false in this example)
                 ACE       2       3       4       5       6       7       8       9      10
           17    0.13    0.14    0.14    0.13    0.12    0.17    0.37    0.13    0.12    0.11
           18    0.13    0.13    0.13    0.13    0.12    0.11    0.14    0.36    0.12    0.11
@@ -233,6 +234,65 @@ class PlayerGraph:
         self.bank_final_scores_probabilities = (
             bank_transitions.get_final_scores_probabilities()[self.bank_card]
         )
+        if settings.DEALER_PEEKED and self.bank_card in [
+            HandState.ACE,
+            HandState.FIGURE,
+        ]:
+            # remove blackjacks from bank final scores for starts hands A and F and re-normalize probabilities
+            p_weights = (
+                self.bank_final_scores_probabilities[HandState.BLACKJACK]
+                + self.bank_final_scores_probabilities[HandState.TWENTY_ONE]
+                + self.bank_final_scores_probabilities[HandState.TWENTY]
+                + self.bank_final_scores_probabilities[HandState.NINETEEN]
+                + self.bank_final_scores_probabilities[HandState.EIGHTEEN]
+                + self.bank_final_scores_probabilities[HandState.SEVENTEEN]
+            )  # non blackjack score probability total weight
+            self.bank_final_scores_probabilities[HandState.BLACKJACK] = 0.0
+            self.bank_final_scores_probabilities[HandState.TWENTY_ONE] = (
+                self.bank_final_scores_probabilities[HandState.TWENTY_ONE] / p_weights
+            )
+            self.bank_final_scores_probabilities[HandState.TWENTY] = (
+                self.bank_final_scores_probabilities[HandState.TWENTY] / p_weights
+            )
+            self.bank_final_scores_probabilities[HandState.NINETEEN] = (
+                self.bank_final_scores_probabilities[HandState.NINETEEN] / p_weights
+            )
+            self.bank_final_scores_probabilities[HandState.EIGHTEEN] = (
+                self.bank_final_scores_probabilities[HandState.EIGHTEEN] / p_weights
+            )
+            self.bank_final_scores_probabilities[HandState.SEVENTEEN] = (
+                self.bank_final_scores_probabilities[HandState.SEVENTEEN] / p_weights
+            )
+
+    def __str__(self):
+        ret = "-------------------------------------------------------------------------------\n"
+        ret += f"Bank card: {str(self.bank_card)}\n"
+        ret += "-------------------------------------------------------------------------------\n"
+        ret += f"{'Player state':<20}{'EV stand':<15}{'EV hit & stand':<20}{'Max EV':<15}{'Best move':<15}\n"
+        ret += "-------------------------------------------------------------------------------\n"
+        for state in HandState:
+            if state != HandState.BUST:
+                best_move = self.get_best_move(state)
+                ret += f"{str(state):<20}{round(self.stand_evs.get(state, 0), 3):<15}{round(self.hit_evs.get(state, 0), 3):<20}{round(self.max_evs[state], 3):<15}{best_move:<15}\n"
+        ret += "-------------------------------------------------------------------------------\n"
+        ret += f"Legend:\n"
+        ret += f"  [Player state] Represent the player state:\n"
+        ret += f"    10: a score of ten that can't lead to a black jack, for example 8 & 2 or 5 & 5 or 6 & 4, ...\n"
+        ret += f"    F: a single figure, this can be obtained only by splitting a pocket figure hand\n"
+        ret += f"  [EV stand] Give the expected value of standing in this position (1.0 = even)\n"
+        ret += f"  [EV hit & stand] Give the expected value of hit and stand from this position (useful to evaluate if a double is relevant)\n"
+        ret += f"  [Max EV] Give the maximum expected value that can be obtained from this position using only stand or hit choices\n"
+        ret += f"  [Best move] Give the best move from this position:\n"
+        ret += f"    {MOVE_STAND}: Stand\n"
+        ret += f"    {MOVE_HIT}: Hit\n"
+        ret += f"    {MOVE_SPLIT}: Split\n"
+        ret += f"    {MOVE_DOUBLE_ELSE_STAND}: Double if possible else stand\n"
+        ret += f"    {MOVE_DOUBLE_ELSE_HIT}: Double if possible else hit\n"
+        ret += f"    {MOVE_SURRENDER_ELSE_STAND}: Surrender if possible else stand\n"
+        ret += f"    {MOVE_SURRENDER_ELSE_HIT}: Surrender if possible else hit\n"
+        ret += f"    {MOVE_SURRENDER_ELSE_SPLIT}: Surrender if possible else split\n"
+        ret += "-------------------------------------------------------------------------------\n"
+        return ret
 
     def get_stand_ev(self, hand_state):
         stand_ev = 0.0
@@ -327,6 +387,10 @@ class PlayerGraph:
             # to double since absolute value of 0.4 is greater than 2 times the absolute value of 0.1
             if best_move == MOVE_HIT and (max_ev < (2 * (self.hit_evs[state] - 1))):
                 best_move = MOVE_DOUBLE_ELSE_HIT
+            elif best_move == MOVE_STAND and (
+                stand_ev < (2 * (self.hit_evs[state] - 1))
+            ):
+                best_move = MOVE_DOUBLE_ELSE_STAND
         elif -0.5 < max_ev:
             # hand is EV- but better than a surrender, in this case the split is profitable only if
             # absolute loss of the 2 bets are lesser than the absolute loss of the single bet
@@ -352,48 +416,19 @@ class PlayerGraph:
 
         return best_move
 
-    def __str__(self):
-        ret = "-------------------------------------------------------------------------------\n"
-        ret += f"Bank card: {str(self.bank_card)}\n"
-        ret += "-------------------------------------------------------------------------------\n"
-        ret += f"{'Player state':<20}{'EV stand':<15}{'EV hit & stand':<20}{'Max EV':<15}{'Best move':<15}\n"
-        ret += "-------------------------------------------------------------------------------\n"
-        for state in HandState:
-            if state != HandState.BUST:
-                best_move = self.get_best_move(state)
-                ret += f"{str(state):<20}{round(self.stand_evs.get(state, 0), 3):<15}{round(self.hit_evs.get(state, 0), 3):<20}{round(self.max_evs[state], 3):<15}{best_move:<15}\n"
-        ret += "-------------------------------------------------------------------------------\n"
-        ret += f"Legend:\n"
-        ret += f"  [Player state] Represent the player state:\n"
-        ret += f"    10: a score of ten that can't lead to a black jack, for example 8 & 2 or 5 & 5 or 6 & 4, ...\n"
-        ret += f"    F: a single figure, this can be obtained only by splitting a pocket figure hand\n"
-        ret += f"  [EV stand] Give the expected value of standing in this position (1.0 = even)\n"
-        ret += f"  [EV hit & stand] Give the expected value of hit and stand from this position (useful to evaluate if a double is relevant)\n"
-        ret += f"  [Max EV] Give the maximum expected value that can be obtained from this position using only stand or hit choices\n"
-        ret += f"  [Best move] Give the best move from this position:\n"
-        ret += f"    {MOVE_STAND}: Stand\n"
-        ret += f"    {MOVE_HIT}: Hit\n"
-        ret += f"    {MOVE_SPLIT}: Split\n"
-        ret += f"    {MOVE_DOUBLE_ELSE_STAND}: Double if possible else stand\n"
-        ret += f"    {MOVE_DOUBLE_ELSE_HIT}: Double if possible else hit\n"
-        ret += f"    {MOVE_SURRENDER_ELSE_STAND}: Surrender if possible else stand\n"
-        ret += f"    {MOVE_SURRENDER_ELSE_HIT}: Surrender if possible else hit\n"
-        ret += f"    {MOVE_SURRENDER_ELSE_SPLIT}: Surrender if possible else split\n"
-        ret += "-------------------------------------------------------------------------------\n"
-        return ret
 
+class BasicStrategyGraphSOSDoubleAfterSplit(PlayerGraph):
+    """
+    Used to override best moves using order from wizard of ods basic strategy where:
+    - dealer stands on soft 17
+    - double after split is allowed
+    - dealer peeked so only initial bet is lost when dealer have a blackjack (expect in case where player have a BJ)
+    See https://wizardofodds.com/games/blackjack/strategy/4-decks/
+    """
 
-####################################################################################
-# Used to override best moves using order from legacy basic strategy (see wikipedia)
-####################################################################################
-class BasicStrategyGraph(PlayerGraph):
     def get_best_move(self, state):
         """
-        Return the best move using map of the wizard of odds strategy when dealer stand on soft 17
-        https://wizardofodds.com/games/blackjack/strategy/4-decks/
-
-        map key is the bank card
-        map value is the dict of best moves for each player state
+        Return the best move using harc coded map of moves from
         """
         best_moves_map = {
             HandState.ACE: {
@@ -659,6 +694,1410 @@ class BasicStrategyGraph(PlayerGraph):
                 HandState.POCKET_TWO: MOVE_SPLIT,
                 HandState.POCKET_THREE: MOVE_SPLIT,
                 HandState.POCKET_FOUR: MOVE_SPLIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_SPLIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.SEVEN: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_HIT,
+                HandState.FIFTEEN: MOVE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_SPLIT,
+                HandState.POCKET_THREE: MOVE_SPLIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_STAND,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.EIGHT: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_HIT,
+                HandState.FIFTEEN: MOVE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_HIT,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_HIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.NINE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FIFTEEN: MOVE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_HIT,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_HIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.FIGURE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FIFTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_HIT,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_HIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_STAND,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+        }
+        return best_moves_map[self.bank_card][state]
+
+
+class BasicStrategyGraphSOSNoDoubleAfterSplit(PlayerGraph):
+    """
+    Used to override best moves using order from wizard of ods basic strategy where:
+    - dealer Stands On Soft 17 (SOS)
+    - double after split is NOT allowed
+    - dealer peeked so only initial bet is lost when dealer have a blackjack (expect in case where player have a BJ)
+    See https://wizardofodds.com/games/blackjack/strategy/4-decks/
+    """
+
+    def get_best_move(self, state):
+        """
+        Return the best move using harc coded map of moves from
+        """
+        best_moves_map = {
+            HandState.ACE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FIFTEEN: MOVE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_HIT,
+                HandState.TEN: MOVE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_HIT,
+                HandState.NINE_NINETEEN: MOVE_HIT,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_HIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_STAND,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.TWO: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.THREE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_SPLIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.FOUR: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_STAND,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_SPLIT,
+                HandState.POCKET_THREE: MOVE_SPLIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_SPLIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.FIVE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_STAND,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_SPLIT,
+                HandState.POCKET_THREE: MOVE_SPLIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_SPLIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.SIX: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_STAND,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_SPLIT,
+                HandState.POCKET_THREE: MOVE_SPLIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_SPLIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.SEVEN: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_HIT,
+                HandState.FIFTEEN: MOVE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_SPLIT,
+                HandState.POCKET_THREE: MOVE_SPLIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_STAND,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.EIGHT: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_HIT,
+                HandState.FIFTEEN: MOVE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_HIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.NINE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FIFTEEN: MOVE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_HIT,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_HIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.FIGURE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FIFTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_HIT,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_HIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_STAND,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+        }
+        return best_moves_map[self.bank_card][state]
+
+
+class BasicStrategyGraphHOSNoDoubleAfterSplit(PlayerGraph):
+    """
+    Used to override best moves using order from wizard of ods basic strategy where:
+    - dealer Hits On Soft 17 (HOS)
+    - double after split is NOT allowed
+    - dealer peeked so only initial bet is lost when dealer have a blackjack (expect in case where player have a BJ)
+    See https://wizardofodds.com/games/blackjack/strategy/4-decks/
+    """
+
+    def get_best_move(self, state):
+        """
+        Return the best move using harc coded map of moves from
+        """
+        best_moves_map = {
+            HandState.ACE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_SURRENDER_ELSE_STAND,
+                HandState.SIXTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FIFTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_HIT,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_HIT,
+                HandState.POCKET_EIGHT: MOVE_SURRENDER_ELSE_SPLIT,
+                HandState.POCKET_NINE: MOVE_STAND,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.TWO: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.THREE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_SPLIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.FOUR: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_STAND,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_SPLIT,
+                HandState.POCKET_THREE: MOVE_SPLIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_SPLIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.FIVE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_STAND,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_SPLIT,
+                HandState.POCKET_THREE: MOVE_SPLIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_SPLIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.SIX: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_STAND,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_SPLIT,
+                HandState.POCKET_THREE: MOVE_SPLIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_SPLIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.SEVEN: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_HIT,
+                HandState.FIFTEEN: MOVE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_SPLIT,
+                HandState.POCKET_THREE: MOVE_SPLIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_STAND,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.EIGHT: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_HIT,
+                HandState.FIFTEEN: MOVE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_HIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.NINE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FIFTEEN: MOVE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_HIT,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_HIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.FIGURE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FIFTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_HIT,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_HIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_STAND,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+        }
+        return best_moves_map[self.bank_card][state]
+
+
+class WikipediaStrategyGraphHOSNoDoubleAfterSplit(PlayerGraph):
+    """
+    Used to override best moves using order from wizard of ods basic strategy where:
+    - dealer Hits On Soft 17 (HOS)
+    - double after split is allowed (Please note the EV of this rule is not implemented in this solver)
+    - dealer peeked so only initial bet is lost when dealer have a blackjack (expect in case where player have a BJ)
+    See https://wizardofodds.com/games/blackjack/strategy/4-decks/
+    """
+
+    def get_best_move(self, state):
+        """
+        Return the best move using harc coded map of moves from
+        """
+        best_moves_map = {
+            HandState.ACE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_SURRENDER_ELSE_STAND,
+                HandState.SIXTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FIFTEEN: MOVE_SURRENDER_ELSE_HIT,
+                HandState.FOURTEEN: MOVE_HIT,
+                HandState.THIRTEEN: MOVE_HIT,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_HIT,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_HIT,
+                HandState.POCKET_EIGHT: MOVE_SURRENDER_ELSE_SPLIT,
+                HandState.POCKET_NINE: MOVE_STAND,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.TWO: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_HIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.THREE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_HIT,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_HIT,
+                HandState.POCKET_THREE: MOVE_HIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_SPLIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.FOUR: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_STAND,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_SPLIT,
+                HandState.POCKET_THREE: MOVE_SPLIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_SPLIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.FIVE: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_STAND,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_SPLIT,
+                HandState.POCKET_THREE: MOVE_SPLIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
+                HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.POCKET_SIX: MOVE_SPLIT,
+                HandState.POCKET_SEVEN: MOVE_SPLIT,
+                HandState.POCKET_EIGHT: MOVE_SPLIT,
+                HandState.POCKET_NINE: MOVE_SPLIT,
+                HandState.POCKET_FIGURE: MOVE_STAND,
+            },
+            HandState.SIX: {
+                # hards
+                HandState.BLACKJACK: MOVE_STAND,
+                HandState.TWENTY_ONE: MOVE_STAND,
+                HandState.TWENTY: MOVE_STAND,
+                HandState.NINETEEN: MOVE_STAND,
+                HandState.EIGHTEEN: MOVE_STAND,
+                HandState.SEVENTEEN: MOVE_STAND,
+                HandState.SIXTEEN: MOVE_STAND,
+                HandState.FIFTEEN: MOVE_STAND,
+                HandState.FOURTEEN: MOVE_STAND,
+                HandState.THIRTEEN: MOVE_STAND,
+                HandState.TWELVE: MOVE_STAND,
+                HandState.ELEVEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.TEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.NINE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT: MOVE_HIT,
+                HandState.SEVEN: MOVE_HIT,
+                HandState.SIX: MOVE_HIT,
+                HandState.FIVE: MOVE_HIT,
+                HandState.FOUR: MOVE_HIT,
+                HandState.THREE: MOVE_HIT,
+                HandState.TWO: MOVE_HIT,
+                # softs
+                HandState.TWO_TWELVE: MOVE_DOUBLE_ELSE_HIT,
+                HandState.THREE_THIRTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FOUR_FOURTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.FIVE_FIFTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SIX_SIXTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.SEVEN_SEVENTEEN: MOVE_DOUBLE_ELSE_HIT,
+                HandState.EIGHT_EIGHTEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.NINE_NINETEEN: MOVE_DOUBLE_ELSE_STAND,
+                HandState.TEN_TWENTY: MOVE_STAND,
+                # pockets
+                HandState.POCKET_ACE: MOVE_SPLIT,
+                HandState.POCKET_TWO: MOVE_SPLIT,
+                HandState.POCKET_THREE: MOVE_SPLIT,
+                HandState.POCKET_FOUR: MOVE_HIT,
                 HandState.POCKET_FIVE: MOVE_DOUBLE_ELSE_HIT,
                 HandState.POCKET_SIX: MOVE_SPLIT,
                 HandState.POCKET_SEVEN: MOVE_SPLIT,
