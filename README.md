@@ -128,7 +128,7 @@ For example, to display best moves table and strategy total expected value, use:
 python jack.py best_moves
 ```
 
-Default is to have the dealer's peeked option and no hit on soft 17 .
+Default is to have the dealer's peeked option and stand on soft 17 .
 
 This can be changed options `--no-peek` (disable dealer's peeked) and `--hos` (activate hit on soft 17) options.
 
@@ -189,10 +189,9 @@ legend:
 	U-H: Surrender if possible else hit
 	U-Sp: Surrender if possible else split
 -----------------------------------------------------------------------------------
-Total expected value using this strategy is: 1.069313
+Total expected value using this strategy if double, split and surrender are allowed is: 1.069313
 (you win a total of 1.069313 every time you do an initial bet of 1)
 -----------------------------------------------------------------------------------
-
 ```
 
 
