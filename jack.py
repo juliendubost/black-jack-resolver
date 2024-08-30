@@ -88,7 +88,9 @@ def display_best_moves(graph_class):
     )
     sys.stdout.write("Computing strategy expected value ...\r")
     game_ev = round(compute_game_ev(PlayerGraph), 6)
-    sys.stdout.write(f"Total expected value using this strategy is: {game_ev}\n")
+    sys.stdout.write(
+        f"Total expected value using this strategy if double, split and surrender are allowed is: {game_ev}\n"
+    )
     sys.stdout.write(
         f"(you win a total of {game_ev} every time you do an initial bet of 1)\n"
     )
