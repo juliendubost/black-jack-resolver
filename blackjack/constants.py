@@ -857,23 +857,23 @@ START_HAND_WEIGHTS = {
     # HandState.TWO is excluded, it is considered as a pocket A
     # HandState.THREE is excluded, it is considered as a pocket 3
     # HandState.FOUR is excluded, it is considered as a pocket 4
-    HandState.FIVE: 1,  # 2 & 3,
-    HandState.SIX: 1,  # 4 & 2, pocket 3 is excluded here
-    HandState.SEVEN: 2,  # 5 & 2 or 4 & 3,
-    HandState.EIGHT: 2,  # 6 & 2 or 5 & 3, pocket 4 is excluded here
-    HandState.NINE: 3,  # 5 & 4 or 6 & 3 or 7 & 2,
-    HandState.TEN: 3,  # 6 & 4 or 7 & 3 or 8 & 2, pocket 5 is excluded here
-    HandState.ELEVEN: 4,  # 6 & 5 or 7 & 4 or 8 & 3 or 9 & 2,
-    HandState.TWELVE: 7,  # F(10 or K or Q or J) & 2 or 9 & 3 or 8 & 4 or 7 & 5, pocket 6 is excluded here
-    HandState.THIRTEEN: 7,  # F(10 or K or Q or J) & 3 or 9 & 4 or 8 & 5 or 7 & 6,
-    HandState.FOURTEEN: 6,  # F(10 or K or Q or J) & 4 or 9 & 5 or 8 & 6, pocket 7 is excluded here
-    HandState.FIFTEEN: 6,  # F(10 or K or Q or J) & 5 or 9 & 6 or 8 & 7,
-    HandState.SIXTEEN: 5,  # F(10 or K or Q or J) & 6 or 9 & 7, pocket 8 is excluded here
-    HandState.SEVENTEEN: 5,  # F(10 or K or Q or J) & 7 or 9 & 8,
-    HandState.EIGHTEEN: 5,  # F(10 or K or Q or J) & 8, pocket 9 is excluded here
-    HandState.NINETEEN: 4,  # F(10 or K or Q or J) & 9,
+    HandState.FIVE: 2,  # 2 & 3,
+    HandState.SIX: 2,  # 4 & 2, pocket 3 is excluded here
+    HandState.SEVEN: 4,  # 5 & 2 or 4 & 3,
+    HandState.EIGHT: 4,  # 6 & 2 or 5 & 3, pocket 4 is excluded here
+    HandState.NINE: 6,  # 5 & 4 or 6 & 3 or 7 & 2,
+    HandState.TEN: 6,  # 6 & 4 or 7 & 3 or 8 & 2, pocket 5 is excluded here
+    HandState.ELEVEN: 8,  # 6 & 5 or 7 & 4 or 8 & 3 or 9 & 2,
+    HandState.TWELVE: 14,  # F(10 or K or Q or J) & 2 or 9 & 3 or 8 & 4 or 7 & 5, pocket 6 is excluded here
+    HandState.THIRTEEN: 14,  # F(10 or K or Q or J) & 3 or 9 & 4 or 8 & 5 or 7 & 6,
+    HandState.FOURTEEN: 12,  # F(10 or K or Q or J) & 4 or 9 & 5 or 8 & 6, pocket 7 is excluded here
+    HandState.FIFTEEN: 12,  # F(10 or K or Q or J) & 5 or 9 & 6 or 8 & 7,
+    HandState.SIXTEEN: 10,  # F(10 or K or Q or J) & 6 or 9 & 7, pocket 8 is excluded here
+    HandState.SEVENTEEN: 10,  # F(10 or K or Q or J) & 7 or 9 & 8,
+    HandState.EIGHTEEN: 8,  # F(10 or K or Q or J) & 8, pocket 9 is excluded here
+    HandState.NINETEEN: 8,  # F(10 or K or Q or J) & 9,
     # HandState.TWENTY is excluded, it is considered as a pocket figures,
-    HandState.BLACKJACK: 5,  # F(10 or K or Q or J) & A,
+    HandState.BLACKJACK: 8,  # F(10 or K or Q or J) & A,
     HandState.POCKET_ACE: 1,  # A & A,
     HandState.POCKET_TWO: 1,  # 2 & 2,
     HandState.POCKET_THREE: 1,  # 3 & 3,
@@ -885,14 +885,14 @@ START_HAND_WEIGHTS = {
     HandState.POCKET_NINE: 1,  # 9 & 9,
     HandState.POCKET_FIGURE: 16,  # F(10 or K or Q or J) & F(10 or K or Q or J)
     # HandState.TWO_TWELVE is excluded, it is considered as a pocket A
-    HandState.THREE_THIRTEEN: 1,  # A & 2,
-    HandState.FOUR_FOURTEEN: 1,  # A & 3,
-    HandState.FIVE_FIFTEEN: 1,  # A & 5,
-    HandState.SIX_SIXTEEN: 1,  # A & 5,
-    HandState.SEVEN_SEVENTEEN: 1,  # A & 6,
-    HandState.EIGHT_EIGHTEEN: 1,  # A & 7,
-    HandState.NINE_NINETEEN: 1,  # A & 8,
-    HandState.TEN_TWENTY: 1,  # A & 9,
+    HandState.THREE_THIRTEEN: 2,  # A & 2,
+    HandState.FOUR_FOURTEEN: 2,  # A & 3,
+    HandState.FIVE_FIFTEEN: 2,  # A & 5,
+    HandState.SIX_SIXTEEN: 2,  # A & 5,
+    HandState.SEVEN_SEVENTEEN: 2,  # A & 6,
+    HandState.EIGHT_EIGHTEEN: 2,  # A & 7,
+    HandState.NINE_NINETEEN: 2,  # A & 8,
+    HandState.TEN_TWENTY: 2,  # A & 9,
 }
 TOTAL_WEIGHTS_SUM = sum(START_HAND_WEIGHTS.values())  # 99
 START_HAND_PROBABILITIES = {
