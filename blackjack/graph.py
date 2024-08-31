@@ -22,6 +22,10 @@ from blackjack.constants import (
     MOVE_SURRENDER_ELSE_SPLIT,
     MOVE_SURRENDER_ELSE_HIT,
     MOVE_SURRENDER_ELSE_STAND,
+    STATE_TO_POINTS,
+    POINTS_TO_SOFT_STATE,
+    POINTS_TO_HARD_STATE,
+    POINTS_TO_POCKET_STATE,
 )
 from blackjack import settings
 
@@ -42,6 +46,18 @@ def score_ev(player_state, bank_state):
     if player_score > bank_score:
         return 2 if player_state != HandState.BLACKJACK else 2.5
     return 0
+
+
+def determine_hand(card_one, card_two):
+    hand_points = STATE_TO_POINTS[card_one] + STATE_TO_POINTS[card_two]
+    if card_one == card_two:
+        hand = POINTS_TO_POCKET_STATE[hand_points]
+    elif HandState.ACE in [card_one, card_two]:
+        hand = POINTS_TO_SOFT_STATE[hand_points]
+    else:
+        hand = POINTS_TO_HARD_STATE[hand_points]
+
+    return hand
 
 
 def hit_transition_matrix():
