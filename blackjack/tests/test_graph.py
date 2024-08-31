@@ -1,6 +1,8 @@
 import sys
 
-from blackjack.graph import BankTransitions, PlayerGraph, score_ev
+import pytest
+
+from blackjack.graph import BankTransitions, PlayerGraph, score_ev, determine_hand
 from blackjack.constants import (
     BANK_STARTING_CARDS,
     STATE_TO_SCORE,
@@ -426,3 +428,130 @@ def test_score_ev():
     assert score_ev(HandState.POCKET_EIGHT, HandState.SEVENTEEN) == 0
     assert score_ev(HandState.POCKET_NINE, HandState.SEVENTEEN) == 2
     assert score_ev(HandState.POCKET_FIGURE, HandState.SEVENTEEN) == 2
+
+
+def test_determine_hand():
+    # pocket hands
+    assert determine_hand(HandState.ACE, HandState.ACE) == HandState.POCKET_ACE
+    assert determine_hand(HandState.TWO, HandState.TWO) == HandState.POCKET_TWO
+    assert determine_hand(HandState.THREE, HandState.THREE) == HandState.POCKET_THREE
+    assert determine_hand(HandState.FOUR, HandState.FOUR) == HandState.POCKET_FOUR
+    assert determine_hand(HandState.FIVE, HandState.FIVE) == HandState.POCKET_FIVE
+    assert determine_hand(HandState.SIX, HandState.SIX) == HandState.POCKET_SIX
+    assert determine_hand(HandState.SEVEN, HandState.SEVEN) == HandState.POCKET_SEVEN
+    assert determine_hand(HandState.EIGHT, HandState.EIGHT) == HandState.POCKET_EIGHT
+    assert (
+        determine_hand(
+            HandState.NINE,
+            HandState.NINE,
+        )
+        == HandState.POCKET_NINE
+    )
+    assert determine_hand(HandState.FIGURE, HandState.FIGURE) == HandState.POCKET_FIGURE
+    with pytest.raises(KeyError):  # TEN is not a start card and should be allowed
+        determine_hand(HandState.TEN, HandState.TEN)
+
+    # soft states
+    assert determine_hand(HandState.ACE, HandState.TWO) == HandState.THREE_THIRTEEN
+    assert determine_hand(HandState.TWO, HandState.ACE) == HandState.THREE_THIRTEEN
+    assert determine_hand(HandState.ACE, HandState.THREE) == HandState.FOUR_FOURTEEN
+    assert determine_hand(HandState.THREE, HandState.ACE) == HandState.FOUR_FOURTEEN
+    assert determine_hand(HandState.ACE, HandState.FOUR) == HandState.FIVE_FIFTEEN
+    assert determine_hand(HandState.FOUR, HandState.ACE) == HandState.FIVE_FIFTEEN
+    assert determine_hand(HandState.ACE, HandState.FIVE) == HandState.SIX_SIXTEEN
+    assert determine_hand(HandState.FIVE, HandState.ACE) == HandState.SIX_SIXTEEN
+    assert determine_hand(HandState.ACE, HandState.SIX) == HandState.SEVEN_SEVENTEEN
+    assert determine_hand(HandState.SIX, HandState.ACE) == HandState.SEVEN_SEVENTEEN
+    assert determine_hand(HandState.ACE, HandState.SEVEN) == HandState.EIGHT_EIGHTEEN
+    assert determine_hand(HandState.SEVEN, HandState.ACE) == HandState.EIGHT_EIGHTEEN
+    assert determine_hand(HandState.ACE, HandState.EIGHT) == HandState.NINE_NINETEEN
+    assert determine_hand(HandState.EIGHT, HandState.ACE) == HandState.NINE_NINETEEN
+    assert determine_hand(HandState.ACE, HandState.NINE) == HandState.TEN_TWENTY
+    assert determine_hand(HandState.NINE, HandState.ACE) == HandState.TEN_TWENTY
+    assert determine_hand(HandState.ACE, HandState.FIGURE) == HandState.BLACKJACK
+    assert determine_hand(HandState.FIGURE, HandState.ACE) == HandState.BLACKJACK
+    with pytest.raises(KeyError):  # TEN is not a start card and should be allowed
+        determine_hand(HandState.ACE, HandState.TEN)
+    with pytest.raises(KeyError):  # TEN is not a start card and should be allowed
+        determine_hand(HandState.TEN, HandState.ACE)
+
+    # hard states
+    assert determine_hand(HandState.TWO, HandState.THREE) == HandState.FIVE
+    assert determine_hand(HandState.THREE, HandState.TWO) == HandState.FIVE
+    assert determine_hand(HandState.TWO, HandState.FOUR) == HandState.SIX
+    assert determine_hand(HandState.FOUR, HandState.TWO) == HandState.SIX
+    assert determine_hand(HandState.TWO, HandState.FIVE) == HandState.SEVEN
+    assert determine_hand(HandState.FIVE, HandState.TWO) == HandState.SEVEN
+    assert determine_hand(HandState.TWO, HandState.SIX) == HandState.EIGHT
+    assert determine_hand(HandState.SIX, HandState.TWO) == HandState.EIGHT
+    assert determine_hand(HandState.TWO, HandState.SEVEN) == HandState.NINE
+    assert determine_hand(HandState.SEVEN, HandState.TWO) == HandState.NINE
+    assert determine_hand(HandState.TWO, HandState.EIGHT) == HandState.TEN
+    assert determine_hand(HandState.EIGHT, HandState.TWO) == HandState.TEN
+    assert determine_hand(HandState.TWO, HandState.NINE) == HandState.ELEVEN
+    assert determine_hand(HandState.NINE, HandState.TWO) == HandState.ELEVEN
+    assert determine_hand(HandState.TWO, HandState.FIGURE) == HandState.TWELVE
+    assert determine_hand(HandState.FIGURE, HandState.TWO) == HandState.TWELVE
+
+    assert determine_hand(HandState.THREE, HandState.FOUR) == HandState.SEVEN
+    assert determine_hand(HandState.FOUR, HandState.THREE) == HandState.SEVEN
+    assert determine_hand(HandState.THREE, HandState.FIVE) == HandState.EIGHT
+    assert determine_hand(HandState.FIVE, HandState.THREE) == HandState.EIGHT
+    assert determine_hand(HandState.THREE, HandState.SIX) == HandState.NINE
+    assert determine_hand(HandState.SIX, HandState.THREE) == HandState.NINE
+    assert determine_hand(HandState.THREE, HandState.SEVEN) == HandState.TEN
+    assert determine_hand(HandState.SEVEN, HandState.THREE) == HandState.TEN
+    assert determine_hand(HandState.THREE, HandState.EIGHT) == HandState.ELEVEN
+    assert determine_hand(HandState.EIGHT, HandState.THREE) == HandState.ELEVEN
+    assert determine_hand(HandState.THREE, HandState.NINE) == HandState.TWELVE
+    assert determine_hand(HandState.NINE, HandState.THREE) == HandState.TWELVE
+    assert determine_hand(HandState.THREE, HandState.FIGURE) == HandState.THIRTEEN
+    assert determine_hand(HandState.FIGURE, HandState.THREE) == HandState.THIRTEEN
+
+    assert determine_hand(HandState.FOUR, HandState.FIVE) == HandState.NINE
+    assert determine_hand(HandState.FIVE, HandState.FOUR) == HandState.NINE
+    assert determine_hand(HandState.FOUR, HandState.SIX) == HandState.TEN
+    assert determine_hand(HandState.SIX, HandState.FOUR) == HandState.TEN
+    assert determine_hand(HandState.FOUR, HandState.SEVEN) == HandState.ELEVEN
+    assert determine_hand(HandState.SEVEN, HandState.FOUR) == HandState.ELEVEN
+    assert determine_hand(HandState.FOUR, HandState.EIGHT) == HandState.TWELVE
+    assert determine_hand(HandState.EIGHT, HandState.FOUR) == HandState.TWELVE
+    assert determine_hand(HandState.FOUR, HandState.NINE) == HandState.THIRTEEN
+    assert determine_hand(HandState.NINE, HandState.FOUR) == HandState.THIRTEEN
+    assert determine_hand(HandState.FOUR, HandState.FIGURE) == HandState.FOURTEEN
+    assert determine_hand(HandState.FIGURE, HandState.FOUR) == HandState.FOURTEEN
+
+    assert determine_hand(HandState.FIVE, HandState.SIX) == HandState.ELEVEN
+    assert determine_hand(HandState.SIX, HandState.FIVE) == HandState.ELEVEN
+    assert determine_hand(HandState.FIVE, HandState.SEVEN) == HandState.TWELVE
+    assert determine_hand(HandState.SEVEN, HandState.FIVE) == HandState.TWELVE
+    assert determine_hand(HandState.FIVE, HandState.EIGHT) == HandState.THIRTEEN
+    assert determine_hand(HandState.EIGHT, HandState.FIVE) == HandState.THIRTEEN
+    assert determine_hand(HandState.FIVE, HandState.NINE) == HandState.FOURTEEN
+    assert determine_hand(HandState.NINE, HandState.FIVE) == HandState.FOURTEEN
+    assert determine_hand(HandState.FIVE, HandState.FIGURE) == HandState.FIFTEEN
+    assert determine_hand(HandState.FIGURE, HandState.FIVE) == HandState.FIFTEEN
+
+    assert determine_hand(HandState.SIX, HandState.SEVEN) == HandState.THIRTEEN
+    assert determine_hand(HandState.SEVEN, HandState.SIX) == HandState.THIRTEEN
+    assert determine_hand(HandState.SIX, HandState.EIGHT) == HandState.FOURTEEN
+    assert determine_hand(HandState.EIGHT, HandState.SIX) == HandState.FOURTEEN
+    assert determine_hand(HandState.SIX, HandState.NINE) == HandState.FIFTEEN
+    assert determine_hand(HandState.NINE, HandState.SIX) == HandState.FIFTEEN
+    assert determine_hand(HandState.SIX, HandState.FIGURE) == HandState.SIXTEEN
+    assert determine_hand(HandState.FIGURE, HandState.SIX) == HandState.SIXTEEN
+
+    assert determine_hand(HandState.SEVEN, HandState.EIGHT) == HandState.FIFTEEN
+    assert determine_hand(HandState.EIGHT, HandState.SEVEN) == HandState.FIFTEEN
+    assert determine_hand(HandState.SEVEN, HandState.NINE) == HandState.SIXTEEN
+    assert determine_hand(HandState.NINE, HandState.SEVEN) == HandState.SIXTEEN
+    assert determine_hand(HandState.SEVEN, HandState.FIGURE) == HandState.SEVENTEEN
+    assert determine_hand(HandState.FIGURE, HandState.SEVEN) == HandState.SEVENTEEN
+
+    assert determine_hand(HandState.EIGHT, HandState.NINE) == HandState.SEVENTEEN
+    assert determine_hand(HandState.NINE, HandState.EIGHT) == HandState.SEVENTEEN
+    assert determine_hand(HandState.EIGHT, HandState.FIGURE) == HandState.EIGHTEEN
+    assert determine_hand(HandState.FIGURE, HandState.EIGHT) == HandState.EIGHTEEN
+
+    assert determine_hand(HandState.NINE, HandState.FIGURE) == HandState.NINETEEN
+    assert determine_hand(HandState.FIGURE, HandState.NINE) == HandState.NINETEEN

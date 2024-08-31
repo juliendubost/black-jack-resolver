@@ -120,6 +120,68 @@ STATE_TO_SCORE = {
     HandState.BLACKJACK: HandState.BLACKJACK,
 }
 
+# Point value of each card, used to determine the 2-cards hand state
+STATE_TO_POINTS = {
+    HandState.TWO: 2,
+    HandState.THREE: 3,
+    HandState.FOUR: 4,
+    HandState.FIVE: 5,
+    HandState.SIX: 6,
+    HandState.SEVEN: 7,
+    HandState.EIGHT: 8,
+    HandState.NINE: 9,
+    HandState.FIGURE: 10,
+    HandState.ACE: 11,
+}
+
+# Give your starting state with 2 not-aces & not-equals cards knowing the hand points
+POINTS_TO_HARD_STATE = {
+    5: HandState.FIVE,
+    6: HandState.SIX,
+    7: HandState.SEVEN,
+    8: HandState.EIGHT,
+    9: HandState.NINE,
+    10: HandState.TEN,
+    11: HandState.ELEVEN,
+    12: HandState.TWELVE,
+    13: HandState.THIRTEEN,
+    14: HandState.FOURTEEN,
+    15: HandState.FIFTEEN,
+    16: HandState.SIXTEEN,
+    17: HandState.SEVENTEEN,
+    18: HandState.EIGHTEEN,
+    19: HandState.NINETEEN,
+    20: HandState.TWENTY,
+}
+
+# Give your starting state with 2 not-equals cards where at least one card is an ace knowing the hand points
+POINTS_TO_SOFT_STATE = {
+    13: HandState.THREE_THIRTEEN,
+    14: HandState.FOUR_FOURTEEN,
+    15: HandState.FIVE_FIFTEEN,
+    16: HandState.SIX_SIXTEEN,
+    17: HandState.SEVEN_SEVENTEEN,
+    18: HandState.EIGHT_EIGHTEEN,
+    19: HandState.NINE_NINETEEN,
+    20: HandState.TEN_TWENTY,
+    21: HandState.BLACKJACK,  # Because it contains an ace, this specific case is put in soft states
+}
+
+# Give your starting state with 2 equals cards knowing the hand points
+POINTS_TO_POCKET_STATE = {
+    22: HandState.POCKET_ACE,
+    4: HandState.POCKET_TWO,
+    6: HandState.POCKET_THREE,
+    8: HandState.POCKET_FOUR,
+    10: HandState.POCKET_FIVE,
+    12: HandState.POCKET_SIX,
+    14: HandState.POCKET_SEVEN,
+    16: HandState.POCKET_EIGHT,
+    18: HandState.POCKET_NINE,
+    20: HandState.POCKET_FIGURE,
+}
+
+
 STATE_TO_LABEL = {
     HandState.BUST: "BUST",
     HandState.ACE: "A",
@@ -835,4 +897,20 @@ START_HAND_WEIGHTS = {
 TOTAL_WEIGHTS_SUM = sum(START_HAND_WEIGHTS.values())  # 99
 START_HAND_PROBABILITIES = {
     key: value / TOTAL_WEIGHTS_SUM for key, value in START_HAND_WEIGHTS.items()
+}
+
+
+# Signatures, used determine the hand knowing the 2 constituting cards
+# use power of 2 to enable use of binary masks
+CARD_SIGNATURES = {
+    HandState.TWO: 0,
+    HandState.THREE: 1,
+    HandState.FOUR: 2,
+    HandState.FIVE: 4,
+    HandState.SIX: 8,
+    HandState.SEVEN: 16,
+    HandState.EIGHT: 32,
+    HandState.NINE: 64,
+    HandState.FIGURE: 128,
+    HandState.ACE: 256,
 }
