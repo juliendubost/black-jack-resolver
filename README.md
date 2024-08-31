@@ -32,21 +32,18 @@ Hypothesis are:
 - Hit on soft 17 or not, controllable through a command line option.
 - No limitations when you split a pair of Ace, you can still hit cards or make a blackjack after the split (most french casinos limit aces split to only 1 card and no blackjack)
 
-Please note that the results presented here have not been validated by an external source. Strategy is very close from the one suggested by [wizard of the odds](https://wizardofodds.com/games/blackjack/strategy/4-decks/) with, on the paper, a slight improvement.
-Also, at the moment the pocket 5, 10-valued and soft 12 lines are missing from wizard of the odds strategy, so I took the recommended values from wikipedia
-
 Here are the computed game expected values depending on house rules and strategies:
 
-| dealer's peeked    | hit on soft 17       | This resolver strategy EV    | Wizard of the odds strategy EV* |  
-|--------------------|----------------------|------------------------------|---------------------------------|
-|                    |                      | 1.062291                     | not available                   |
-| X                  |                      | 1.069313                     | 1.067432                        |
-|                    | X                    | 1.060393                     | not available                   |
-| X                  | X                    | 1.068152                     | 1.067637                        |
+| dealer's peeked    | hit on soft 17       | This resolver strategy EV | 
+|--------------------|----------------------|---------------------------|
+|                    |                      | 1.00206                   | 
+| X                  |                      | 1.00715                   |   
+|                    | X                    | 1.000686                  | 
+| X                  | X                    | 1.006408                  | 
 
 `* using the case where double after a split is not allowed`
 
-If these results are correct, blackjack game have a positive expected value, meaning it's a wining game for the player and a loosing game for the bank if a good enough strategy is used by the player.
+If these results are correct, blackjack game have a slightly positive expected value, meaning it's a slightly wining game for the player that apply this strategy.
 
 All best moves and expected values tables computable using this resolver are available in the `tables` directory.
 
@@ -189,8 +186,8 @@ legend:
 	U-H: Surrender if possible else hit
 	U-Sp: Surrender if possible else split
 -----------------------------------------------------------------------------------
-Total expected value using this strategy if double, split and surrender are allowed is: 1.069313
-(you win a total of 1.069313 every time you do an initial bet of 1)
+Total expected value using this strategy if double, split and surrender are allowed is: 1.00715
+(you win a total of 1.00715 every time you do an initial bet of 1)
 -----------------------------------------------------------------------------------
 ```
 

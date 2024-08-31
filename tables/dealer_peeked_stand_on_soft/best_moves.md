@@ -54,7 +54,7 @@ legend:
 	U-H: Surrender if possible else hit
 	U-Sp: Surrender if possible else split
 -----------------------------------------------------------------------------------
-Total expected value using this strategy if double, split and surrender are allowed is: 1.069313
-(you win a total of 1.069313 every time you do an initial bet of 1)
+Total expected value using this strategy if double, split and surrender are allowed is: 1.00715
+(you win a total of 1.00715 every time you do an initial bet of 1)
 -----------------------------------------------------------------------------------
 ```
