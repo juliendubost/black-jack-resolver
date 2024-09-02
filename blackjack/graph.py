@@ -256,7 +256,7 @@ class PlayerGraph:
         ]:
             # remove blackjacks from bank final scores for starts hands A and F and re-normalize probabilities
             p_weights = (
-                self.bank_final_scores_probabilities[HandState.BLACKJACK]
+                self.bank_final_scores_probabilities[HandState.BUST]
                 + self.bank_final_scores_probabilities[HandState.TWENTY_ONE]
                 + self.bank_final_scores_probabilities[HandState.TWENTY]
                 + self.bank_final_scores_probabilities[HandState.NINETEEN]
@@ -278,6 +278,9 @@ class PlayerGraph:
             )
             self.bank_final_scores_probabilities[HandState.SEVENTEEN] = (
                 self.bank_final_scores_probabilities[HandState.SEVENTEEN] / p_weights
+            )
+            self.bank_final_scores_probabilities[HandState.BUST] = (
+                self.bank_final_scores_probabilities[HandState.BUST] / p_weights
             )
 
     def __str__(self):

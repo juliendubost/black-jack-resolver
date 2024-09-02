@@ -53,11 +53,13 @@ def compute_game_ev(graph_class):
         bank_starting_card_probabilities[constants.HandState.FIGURE] = 4 / 13
 
     for bank_card, bank_card_probability in bank_starting_card_probabilities.items():
-        # special case for special blacjack bank card
+        # special case for special blackjack bank card
         if bank_card == constants.HandState.BLACKJACK:
             for player_hand, probability in constants.START_HAND_PROBABILITIES.items():
                 if player_hand != constants.HandState.BLACKJACK:
                     player_abs_val += -bank_card_probability * probability
+                else:
+                    player_abs_val += bank_card_probability * probability
             continue
 
         player_graph = graph_class(bank_card)
