@@ -32,18 +32,16 @@ Hypothesis are:
 - Hit on soft 17 or not, controllable through a command line option.
 - No limitations when you split a pair of Ace, you can still hit cards or make a blackjack after the split (most french casinos limit aces split to only 1 card and no blackjack)
 
-Here are the computed game expected values depending on house rules and strategies:
+Here are the computed game expected values depending on house rules, using the best strategy:
 
 | dealer's peeked    | hit on soft 17       | This resolver strategy EV | 
 |--------------------|----------------------|---------------------------|
 |                    |                      | 1.00206                   | 
-| X                  |                      | 1.00715                   |   
+| X                  |                      | 1.012566                  |   
 |                    | X                    | 1.000686                  | 
-| X                  | X                    | 1.006408                  | 
+| X                  | X                    | 1.010486                  | 
 
 `* using the case where double after a split is not allowed`
-
-If these results are correct, blackjack game have a slightly positive expected value, meaning it's a slightly wining game for the player that apply this strategy.
 
 All best moves and expected values tables computable using this resolver are available in the `tables` directory.
 

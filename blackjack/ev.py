@@ -19,12 +19,9 @@ def compute_game_ev(graph_class):
     bank_starting_card_probabilities = {}
     if settings.DEALER_PEEKED:
         # Add an abstract blackjack hand to compensate the miss of blackjack possibility for ace and figure EV table
-        black_jack_probability_on_ace_or_figure = (
-            1 / 13 * 4 / 13
-        )  # probability to have an ACE then a ten-valued card or vice versa
-        bank_starting_card_probabilities[constants.HandState.ACE] = (
-            1 / 13 - black_jack_probability_on_ace_or_figure
-        )
+        bank_starting_card_probabilities[constants.HandState.ACE] = 1 / 13 - (
+            4 / (13 * 13)
+        )  # remove probability to have a BJ given first card is an Ace
         bank_starting_card_probabilities[constants.HandState.TWO] = 1 / 13
         bank_starting_card_probabilities[constants.HandState.THREE] = 1 / 13
         bank_starting_card_probabilities[constants.HandState.FOUR] = 1 / 13
@@ -33,12 +30,12 @@ def compute_game_ev(graph_class):
         bank_starting_card_probabilities[constants.HandState.SEVEN] = 1 / 13
         bank_starting_card_probabilities[constants.HandState.EIGHT] = 1 / 13
         bank_starting_card_probabilities[constants.HandState.NINE] = 1 / 13
-        bank_starting_card_probabilities[constants.HandState.FIGURE] = (
-            4 / 13 - black_jack_probability_on_ace_or_figure
-        )
-        bank_starting_card_probabilities[constants.HandState.BLACKJACK] = (
-            2 * black_jack_probability_on_ace_or_figure
-        )
+        bank_starting_card_probabilities[constants.HandState.FIGURE] = 4 / 13 - (
+            1 / (13 * 13)
+        )  # remove probability to have a BJ given first card is a Figure
+        bank_starting_card_probabilities[constants.HandState.BLACKJACK] = 5 / (
+            13 * 13
+        )  # sum of the probabilities to make a BJ given first card is an Ace of a Figure
     else:
         bank_starting_card_probabilities[constants.HandState.ACE] = 1 / 13
         bank_starting_card_probabilities[constants.HandState.TWO] = 1 / 13
