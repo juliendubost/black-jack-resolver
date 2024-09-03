@@ -19,7 +19,6 @@ def compute_game_ev(graph_class):
     bank_starting_card_probabilities = {}
     if settings.DEALER_PEEKED:
         # Add an abstract blackjack hand to compensate the miss of blackjack possibility for ace and figure EV table
-        # if dealer peeked option is ON
         black_jack_probability_on_ace_or_figure = (
             1 / 13 * 4 / 13
         )  # probability to have an ACE then a ten-valued card or vice versa
@@ -55,11 +54,12 @@ def compute_game_ev(graph_class):
     for bank_card, bank_card_probability in bank_starting_card_probabilities.items():
         # special case for special blackjack bank card
         if bank_card == constants.HandState.BLACKJACK:
-            for player_hand, probability in constants.START_HAND_PROBABILITIES.items():
-                if player_hand != constants.HandState.BLACKJACK:
-                    player_abs_val += -bank_card_probability * probability
-                else:
-                    player_abs_val += bank_card_probability * probability
+            # for all start hands but blackjack, hand is loosing
+            probability = (
+                sum(constants.START_HAND_PROBABILITIES.values())
+                - constants.START_HAND_PROBABILITIES[constants.HandState.BLACKJACK]
+            )
+            player_abs_val += -bank_card_probability * probability
             continue
 
         player_graph = graph_class(bank_card)
