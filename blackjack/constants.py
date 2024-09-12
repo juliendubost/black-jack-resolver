@@ -1,3 +1,4 @@
+import copy
 from enum import Enum
 from blackjack import settings
 
@@ -801,6 +802,7 @@ HIT_TRANSITIONS = {
         HandState.FIGURE: HandState.TWENTY,
     },
 }
+
 # Add pocket hands transitions
 HIT_TRANSITIONS[HandState.POCKET_ACE] = HIT_TRANSITIONS[HandState.TWO_TWELVE]
 HIT_TRANSITIONS[HandState.POCKET_TWO] = HIT_TRANSITIONS[HandState.FOUR]
@@ -812,6 +814,21 @@ HIT_TRANSITIONS[HandState.POCKET_SEVEN] = HIT_TRANSITIONS[HandState.FOURTEEN]
 HIT_TRANSITIONS[HandState.POCKET_EIGHT] = HIT_TRANSITIONS[HandState.SIXTEEN]
 HIT_TRANSITIONS[HandState.POCKET_NINE] = HIT_TRANSITIONS[HandState.EIGHTEEN]
 HIT_TRANSITIONS[HandState.POCKET_FIGURE] = HIT_TRANSITIONS[HandState.TWENTY]
+
+# Transitions if ace do not give any black jack
+HIT_TRANSITIONS_NO_BLACKJACK = copy.deepcopy(HIT_TRANSITIONS)
+HIT_TRANSITIONS_NO_BLACKJACK[HandState.ACE] = {
+    HandState.ACE: HandState.TWO_TWELVE,
+    HandState.TWO: HandState.THREE_THIRTEEN,
+    HandState.THREE: HandState.FOUR_FOURTEEN,
+    HandState.FOUR: HandState.FIVE_FIFTEEN,
+    HandState.FIVE: HandState.SIX_SIXTEEN,
+    HandState.SIX: HandState.SEVEN_SEVENTEEN,
+    HandState.SEVEN: HandState.EIGHT_EIGHTEEN,
+    HandState.EIGHT: HandState.NINE_NINETEEN,
+    HandState.NINE: HandState.TEN_TWENTY,
+    HandState.FIGURE: HandState.TWENTY_ONE,
+}
 
 HIT_PROBABILITIES = {
     HandState.ACE: 1 / 13,

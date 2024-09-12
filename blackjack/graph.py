@@ -7,6 +7,7 @@ from blackjack.constants import (
     PRE_HIT_CARDS,
     HIT_CARDS,
     HIT_TRANSITIONS,
+    HIT_TRANSITIONS_NO_BLACKJACK,
     BANK_STARTING_CARDS,
     BANK_STAND_STATES,
     BANK_STAND_SCORES,
@@ -60,12 +61,12 @@ def determine_hand(card_one, card_two):
     return hand
 
 
-def hit_transition_matrix():
+def hit_transition_matrix(hit_transitions=HIT_TRANSITIONS):
     """
     compute the hit transition probability matrix for every possible HandState.
     A transition is defined by a start state and an end state
 
-    Example here where (only display rows from 16 to 20):
+    Truncated example here:
      - each row represent a starting state
      - each column represent the final state
 
@@ -86,7 +87,7 @@ def hit_transition_matrix():
         if state in PRE_HIT_CARDS:
             for hit_state in HIT_CARDS:
                 probability = HIT_PROBABILITIES[hit_state]
-                final_state = HIT_TRANSITIONS[state].get(hit_state, HandState.BUST)
+                final_state = hit_transitions[state].get(hit_state, HandState.BUST)
                 transition_matrix[state.value][final_state.value] += probability
     return transition_matrix
 
@@ -242,7 +243,12 @@ class PlayerGraph:
         )  # {state : expected value if you hit at this state then stand}
         self.max_evs = {}  # {state : maximum expected value for this state}
         self.bank_card = bank_card
-        self.hit_transition_matrix = hit_transition_matrix()
+        hit_transitions = (
+            HIT_TRANSITIONS
+            if settings.SPLIT_ACE_ALLOW_BLACKJACK
+            else HIT_TRANSITIONS_NO_BLACKJACK
+        )
+        self.hit_transition_matrix = hit_transition_matrix(hit_transitions)
 
         # bank score probabilities
         bank_transitions = BankTransitions()
@@ -321,9 +327,9 @@ class PlayerGraph:
 
     def _build_stand_evs(self):
         """
-        Compute stand expected value of each state
+        Compute transitions and stand expected value of each state
         """
-        # build the transitions for each player start card
+        # build the transitions and stand EVs for each possible state
         for state in HandState:
             if self.stand_evs.get(state) is None:
                 self.stand_evs[state] = self.get_stand_ev(state)
@@ -358,10 +364,18 @@ class PlayerGraph:
         hit_ev = 0
         for transition in self.transitions.get(state, []):
             if transition.probability:
-                hit_ev += self._max_ev(
-                    transition.destination_hand_state,
-                    transition.probability * probability,
-                )
+                # Specific case if no draw is allowed with an ace
+                if settings.SPLIT_ACE_ALLOW_DRAW:
+                    hit_ev += self._max_ev(
+                        transition.destination_hand_state,
+                        transition.probability * probability,
+                    )
+                else:
+                    hit_ev += (
+                        self.stand_evs[transition.destination_hand_state]
+                        * probability
+                        * transition.probability
+                    )
 
         return max(hit_ev, self.stand_evs[state] * probability)
 

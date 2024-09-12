@@ -126,10 +126,22 @@ if __name__ == "__main__":
         action="store_true",
         help="dealer hit on soft 17, default is set to false",
     )
+    parser.add_argument(
+        "--ace-no-draw",
+        action="store_true",
+        help="Draw is not allowed after pocket aces split",
+    )
+    parser.add_argument(
+        "--ace-no-bj",
+        action="store_true",
+        help="Blackjack is not allowed after pocket aces split",
+    )
     arguments = parser.parse_args()
 
     settings.DEALER_HIT_ON_SOFT_17 = arguments.hos
     settings.DEALER_PEEKED = not arguments.no_peek
+    settings.SPLIT_ACE_ALLOW_BLACKJACK = not arguments.ace_no_bj
+    settings.SPLIT_ACE_ALLOW_DRAW = not arguments.ace_no_draw
 
     # do imports after settings are set
     from blackjack import constants
