@@ -26,24 +26,30 @@ Solving is determinist and based on a [directed acyclic graph](https://en.wikipe
 A monte-carlo validation is implemented as unit tests to check some pre-computed values. Not the whole game have been modeled using a montecarlo validation
 
 Hypothesis are:
-- An infinite number of decks, at any time the probability of drawing card that is not ten-valued is 1/13 and 4/13 for a 10-valued card. Impact of this is judged insignificant as long as the house plays with 4+ decks
+- An infinite number of decks, at any time the probability of drawing card that is not ten-valued is 1/13 and 4/13 for a 10-valued card.
 - No possibility to double after a split, this is not yet implemented because the impact on EV is judged as very low
-- Dealer's peeked or not, controllable through a command line option. Dealer's peeked is mostly use in America where dealer stop the game before serving players if the face down card would reveal a blackjack
-- Hit on soft 17 or not, controllable through a command line option.
-- No limitations when you split a pair of Ace, you can still hit cards or make a blackjack after the split (most french casinos limit aces split to only 1 card and no blackjack)
 
-Here are the computed game expected values depending on house rules and strategies:
+Options: 
+- Dealer's peeked: mostly use in America where dealer stop the game before serving players if the face down card would reveal a blackjack (disable using --no-peek)
+- Stand or hit on soft 17: control weither dealer stand or hit on a soft 17 (enable hit on soft 17 using --hos option)
+- No draw on aces split: only one card is dealt on each ace when a pocket aces hand is splitted (enable it using --ace-no-draw option)
+- No black jack on aces split: a ten valued with an ace do not give a blackjack when a pocket aces hand is splitted, you get 21 instead (enable it using --ace-no-bj option)
 
-| dealer's peeked    | hit on soft 17       | This resolver strategy EV | 
-|--------------------|----------------------|---------------------------|
-|                    |                      | 1.00206                   | 
-| X                  |                      | 1.00715                   |   
-|                    | X                    | 1.000686                  | 
-| X                  | X                    | 1.006408                  | 
+
+Here are the computed game expected values depending on house rules, using the best strategy:
+
+| dealer's peeked    | hit on soft 17  | ace no draw  | ace no BJ  |  EV       |
+|--------------------|-----------------|--------------| ---------- |-----------|
+|                    |                 |              |            | 1.00206   | 
+| X                  |                 |              |            | 1.012566  |  
+|                    | X               |              |            | 1.000686  |  
+| X                  | X               |              |            | 1.010486  | 
+|                    |                 | X            | X          | 0.975495  | 
+| X                  |                 | X            | X          | 0.983872  | 
+|                    | X               | X            | X          | 0.974743  | 
+| X                  | X               | X            | X          | 0.982916  | 
 
 `* using the case where double after a split is not allowed`
-
-If these results are correct, blackjack game have a slightly positive expected value, meaning it's a slightly wining game for the player that apply this strategy.
 
 All best moves and expected values tables computable using this resolver are available in the `tables` directory.
 
