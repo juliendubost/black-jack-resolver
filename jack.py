@@ -105,7 +105,7 @@ if __name__ == "__main__":
     
     commands are:\n
       ev_table: display expected values table for given bank card
-      best_moves: display best moves instead of expected values table
+      best_moves: display best moves table and total expected value
     """
 
     parser = argparse.ArgumentParser(
