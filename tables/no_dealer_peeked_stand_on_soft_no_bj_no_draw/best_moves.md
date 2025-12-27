@@ -1,3 +1,4 @@
+```text
 -----------------------------------------------------------------------------------
 Player best move for each bank card (first line) and each state (first column)
 -----------------------------------------------------------------------------------
@@ -55,4 +56,4 @@ legend:
 Total expected value using this strategy if double, split and surrender are allowed is: 0.975495
 (you win a total of 0.975495 every time you do an initial bet of 1)
 -----------------------------------------------------------------------------------
-
+```
