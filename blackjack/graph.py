@@ -261,6 +261,7 @@ class PlayerGraph:
             HandState.FIGURE,
         ]:
             # remove blackjacks from bank final scores for starts hands A and F and re-normalize probabilities
+            # since there is no possibility for the bank to have a blackjack if dealer peeked
             p_weights = (
                 self.bank_final_scores_probabilities[HandState.BUST]
                 + self.bank_final_scores_probabilities[HandState.TWENTY_ONE]
@@ -293,21 +294,21 @@ class PlayerGraph:
         ret = "-------------------------------------------------------------------------------\n"
         ret += f"Bank card: {str(self.bank_card)}\n"
         ret += "-------------------------------------------------------------------------------\n"
-        ret += f"{'Player state':<20}{'EV stand':<15}{'EV hit & stand':<20}{'Max EV':<15}{'Best move':<15}\n"
+        ret += "{'Player state':<20}{'EV stand':<15}{'EV hit & stand':<20}{'Max EV':<15}{'Best move':<15}\n"
         ret += "-------------------------------------------------------------------------------\n"
         for state in HandState:
             if state != HandState.BUST:
                 best_move = self.get_best_move(state)
                 ret += f"{str(state):<20}{round(self.stand_evs.get(state, 0), 3):<15}{round(self.hit_evs.get(state, 0), 3):<20}{round(self.max_evs[state], 3):<15}{best_move:<15}\n"
         ret += "-------------------------------------------------------------------------------\n"
-        ret += f"Legend:\n"
-        ret += f"  [Player state] Represent the player state:\n"
-        ret += f"    10: a score of ten that can't lead to a black jack, for example 8 & 2 or 5 & 5 or 6 & 4, ...\n"
-        ret += f"    F: a single figure, this can be obtained only by splitting a pocket figure hand\n"
-        ret += f"  [EV stand] Give the expected value of standing in this position (1.0 = even)\n"
-        ret += f"  [EV hit & stand] Give the expected value of hit and stand from this position (useful to evaluate if a double is relevant)\n"
-        ret += f"  [Max EV] Give the maximum expected value that can be obtained from this position using only stand or hit choices\n"
-        ret += f"  [Best move] Give the best move from this position:\n"
+        ret += "Legend:\n"
+        ret += "  [Player state] Represent the player state:\n"
+        ret += "    10: a score of ten that can't lead to a black jack, for example 8 & 2 or 5 & 5 or 6 & 4, ...\n"
+        ret += "    F: a single figure, this can be obtained only by splitting a pocket figure hand\n"
+        ret += "  [EV stand] Give the expected value of standing in this position (1.0 = even)\n"
+        ret += "  [EV hit & stand] Give the expected value of hit and stand from this position (useful to evaluate if a double is relevant)\n"
+        ret += "  [Max EV] Give the maximum expected value that can be obtained from this position using only stand or hit choices\n"
+        ret += "  [Best move] Give the best move from this position:\n"
         ret += f"    {MOVE_STAND}: Stand\n"
         ret += f"    {MOVE_HIT}: Hit\n"
         ret += f"    {MOVE_SPLIT}: Split\n"
@@ -365,7 +366,7 @@ class PlayerGraph:
         for transition in self.transitions.get(state, []):
             if transition.probability:
                 # Specific case if no draw is allowed with an ace
-                if settings.SPLIT_ACE_ALLOW_DRAW:
+                if settings.SPLIT_ACE_ALLOW_DRAW or state != HandState.ACE:
                     hit_ev += self._max_ev(
                         transition.destination_hand_state,
                         transition.probability * probability,

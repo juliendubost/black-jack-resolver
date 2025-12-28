@@ -11,6 +11,7 @@ ipython = "^8.14.0"
 black = "^23.7.0"
 pytest = "^8.3.2"
 pytest-xdist = "^3.6.1"
+flake8 = "^7.3.0"
 
 
 [build-system]

@@ -915,19 +915,3 @@ TOTAL_WEIGHTS_SUM = sum(START_HAND_WEIGHTS.values())  # 99
 START_HAND_PROBABILITIES = {
     key: value / TOTAL_WEIGHTS_SUM for key, value in START_HAND_WEIGHTS.items()
 }
-
-
-# Signatures, used determine the hand knowing the 2 constituting cards
-# use power of 2 to enable use of binary masks
-CARD_SIGNATURES = {
-    HandState.TWO: 0,
-    HandState.THREE: 1,
-    HandState.FOUR: 2,
-    HandState.FIVE: 4,
-    HandState.SIX: 8,
-    HandState.SEVEN: 16,
-    HandState.EIGHT: 32,
-    HandState.NINE: 64,
-    HandState.FIGURE: 128,
-    HandState.ACE: 256,
-}
