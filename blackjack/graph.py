@@ -294,7 +294,7 @@ class PlayerGraph:
         ret = "-------------------------------------------------------------------------------\n"
         ret += f"Bank card: {str(self.bank_card)}\n"
         ret += "-------------------------------------------------------------------------------\n"
-        ret += "{'Player state':<20}{'EV stand':<15}{'EV hit & stand':<20}{'Max EV':<15}{'Best move':<15}\n"
+        ret += f"{'Player state':<20}{'EV stand':<15}{'EV hit & stand':<20}{'Max EV':<15}{'Best move':<15}\n"
         ret += "-------------------------------------------------------------------------------\n"
         for state in HandState:
             if state != HandState.BUST:
