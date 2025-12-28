@@ -39,10 +39,10 @@ Options:
 
 Here are the computed game expected values (NO YET VALIDATED) depending on house rules, using the best strategy:
 
-| dealer's peeked    | hit on soft 17  | ace no draw  | ace no BJ  | EV       | tables folder                                                        | 
-|--------------------|-----------------|--------------| ---------- |----------|----------------------------------------------------------------------|
-|                    |                 |              |            | 1.002063 | [no_peek](tables/no_peek)                                            | 
-| X                  |                 |              |            | 1.012566 | [peeked](tables/peeked)                                              |
+| dealer's peeked    | hit on soft 17  | ace no draw  | ace no BJ  | EV       | tables folder                                                 | 
+|--------------------|-----------------|--------------| ---------- |----------|---------------------------------------------------------------|
+|                    |                 |              |            | 1.002063 | [no_peek](tables/no_peek)                                     | 
+| X                  |                 |              |            | 1.012566 | [peeked](tables/peeked)                                       |
 |                    | X               |              |            | 1.000686 | [no_peek_hos](tables/no_peek_hos)                             |
 | X                  | X               |              |            | 1.010486 | [peeked_hos](tables/peeked_hos)                               |
 |                    |                 | X            | X          | 0.99808  | [no_peek_no_bj_no_draw](tables/no_peek_no_bj_no_draw)         |
