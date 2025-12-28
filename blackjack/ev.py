@@ -21,7 +21,7 @@ def compute_game_ev(graph_class):
         # Add an abstract blackjack hand to compensate the miss of blackjack possibility for ace and figure EV table
         bank_starting_card_probabilities[constants.HandState.ACE] = 1 / 13 - (
             4 / (13 * 13)
-        )  # remove probability to have a BJ given first card is an Ace
+        )  # remove probability to have a BJ given first card is an Ace since that would lead to a peek
         bank_starting_card_probabilities[constants.HandState.TWO] = 1 / 13
         bank_starting_card_probabilities[constants.HandState.THREE] = 1 / 13
         bank_starting_card_probabilities[constants.HandState.FOUR] = 1 / 13
@@ -32,7 +32,7 @@ def compute_game_ev(graph_class):
         bank_starting_card_probabilities[constants.HandState.NINE] = 1 / 13
         bank_starting_card_probabilities[constants.HandState.FIGURE] = 4 / 13 - (
             1 / (13 * 13)
-        )  # remove probability to have a BJ given first card is a Figure
+        )  # remove probability to have a BJ given first card is a Figure since that would lead to a peek
         bank_starting_card_probabilities[constants.HandState.BLACKJACK] = 5 / (
             13 * 13
         )  # sum of the probabilities to make a BJ given first card is an Ace of a Figure

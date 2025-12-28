@@ -27,29 +27,29 @@ A monte-carlo validation is implemented as unit tests to check some pre-computed
 
 Hypothesis are:
 - An infinite number of decks, at any time the probability of drawing card that is not ten-valued is 1/13 and 4/13 for a 10-valued card.
-- No possibility to double after a split, this is not yet implemented because the impact on EV is judged as very low
+- No possibility to double after a split
+- Infinite number of splits
 
 Options: 
 - Dealer's peeked: mostly use in America where dealer stop the game before serving players if the face down card would reveal a blackjack (disable using --no-peek)
-- Stand or hit on soft 17: control weither dealer stand or hit on a soft 17 (enable hit on soft 17 using --hos option)
-- No draw on aces split: only one card is dealt on each ace when a pocket aces hand is splitted (enable it using --ace-no-draw option)
-- No black jack on aces split: a ten valued with an ace do not give a blackjack when a pocket aces hand is splitted, you get 21 instead (enable it using --ace-no-bj option)
+- Stand or hit on soft 17: control either dealer stand or hit on a soft 17 (enable hit on soft 17 using --hos option)
+- No draw on aces split: only one card is dealt on each ace when a pocket aces hand is split (enable it using --ace-no-draw option)
+- No black jack on aces split: a ten valued with an ace do not give a blackjack when a pocket aces hand is split, you get 21 instead (enable it using --ace-no-bj option)
 
 
-Here are the computed game expected values depending on house rules, using the best strategy:
+Here are the computed game expected values (NO YET VALIDATED) depending on house rules, using the best strategy:
 
-| dealer's peeked    | hit on soft 17  | ace no draw  | ace no BJ  |  EV       |
-|--------------------|-----------------|--------------| ---------- |-----------|
-|                    |                 |              |            | 1.00206   | 
-| X                  |                 |              |            | 1.012566  |  
-|                    | X               |              |            | 1.000686  |  
-| X                  | X               |              |            | 1.010486  | 
-|                    |                 | X            | X          | 0.975495  | 
-| X                  |                 | X            | X          | 0.983872  | 
-|                    | X               | X            | X          | 0.974743  | 
-| X                  | X               | X            | X          | 0.982916  | 
+| dealer's peeked    | hit on soft 17  | ace no draw  | ace no BJ  | EV        | tables folder                                                  | 
+|--------------------|-----------------|--------------| ---------- |-----------|----------------------------------------------------------------|
+|                    |                 |              |            | 1.002063  | [no_peek](tables/no_peek)                                      | 
+| X                  |                 |              |            | 1.012566  | [peeked](tables/peeked)                                        |
+|                    | X               |              |            | 1.000686  | [no_peek_hos](tables/no_peek_hos)                              |
+| X                  | X               |              |            | 1.010486  | [peeked_hos](tables/peeked_hos)                                |
+|                    |                 | X            | X          | 0.99808   | [no_peek_no_bj_no_draw](tables/no_peek_no_bj_no_draw)          |
+| X                  |                 | X            | X          | 1.008584  | [peeked_no_bj_no_draw](tables/peeked_no_bj_no_draw)            |
+|                    | X               | X            | X          | 0.996722  | [no_peek_hos_no_bj_no_draw](tables/no_peek_hos_no_bj_no_draw)  |
+| X                  | X               | X            | X          | 1.006536  | [peeked_hos_no_bj_no_draw](tables/peeked_hos_no_bj_no_draw)    |
 
-`* using the case where double after a split is not allowed`
 
 All best moves and expected values tables computable using this resolver are available in the `tables` directory.
 

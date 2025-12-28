@@ -1,5 +1,4 @@
 ```text
-NO Dealer's peeked, stand on soft 17, no double after split allowed
 -----------------------------------------------------------------------------------
 Player best move for each bank card (first line) and each state (first column)
 -----------------------------------------------------------------------------------
@@ -33,7 +32,7 @@ Player best move for each bank card (first line) and each state (first column)
 3-13	H	H	H	H	D-H	H	H	H	H	H	
 2-12	H	H	H	H	H	H	H	H	H	H	
 -----------------------------------------------------------------------------------
-1-1	Sp	Sp	Sp	Sp	Sp	Sp	Sp	Sp	Sp	Sp	
+1-1	Sp	Sp	Sp	Sp	Sp	Sp	Sp	Sp	Sp	H	
 10-10	S	S	S	S	S	S	S	S	S	S	
 9-9	Sp	Sp	Sp	Sp	Sp	S	Sp	Sp	S	S	
 8-8	Sp	Sp	Sp	Sp	Sp	Sp	Sp	Sp	U-H	U-H	
@@ -54,7 +53,7 @@ legend:
 	U-H: Surrender if possible else hit
 	U-Sp: Surrender if possible else split
 -----------------------------------------------------------------------------------
-Total expected value using this strategy if double, split and surrender are allowed is: 1.002063
-(you win a total of 1.002063 every time you do an initial bet of 1)
+Computing strategy expected value ...Total expected value using this strategy if double, split and surrender are allowed is: 0.99808
+(you win a total of 0.99808 every time you do an initial bet of 1)
 -----------------------------------------------------------------------------------
 ```
