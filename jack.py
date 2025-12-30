@@ -14,16 +14,10 @@ def display_ev(bank_card):
 
 def display_best_moves(graph_class):
     """ "
-    graph_class: Graph class to use to compute best moved (PlayerGraph or any inherited class)
+    graph_class: Graph class to use to compute best moves (PlayerGraph or any inherited class)
     """
-    best_moves_map = {}
+    best_moves_map = graph_class.get_best_moves()
 
-    for bank_card in constants.BANK_STARTING_CARDS:
-        graph = graph_class(bank_card)
-        graph.build()
-        best_moves_map[bank_card] = {}
-        for player_state in constants.PLAYER_POSSIBLE_STATES:
-            best_moves_map[bank_card][player_state] = graph.get_best_move(player_state)
     sys.stdout.write(
         f"-----------------------------------------------------------------------------------\n"
     )

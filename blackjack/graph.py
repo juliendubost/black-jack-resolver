@@ -13,6 +13,7 @@ from blackjack.constants import (
     BANK_STAND_SCORES,
     STATE_TO_SCORE,
     PLAYER_END_STATES,
+    PLAYER_POSSIBLE_STATES,
     HIT_PROBABILITIES,
     POST_SPLIT_STATE,
     MOVE_HIT,
@@ -385,11 +386,6 @@ class PlayerGraph:
         for state in HandState:
             self.max_evs[state] = self._max_ev(state, 1)
 
-    def build(self):
-        self._build_stand_evs()
-        self._build_hit_evs()
-        self._build_max_evs()
-
     def get_best_move(self, state):
         """
         Return the best move for given state
@@ -449,6 +445,23 @@ class PlayerGraph:
                 best_move = MOVE_SURRENDER_ELSE_STAND
 
         return best_move
+
+    def build(self):
+        self._build_stand_evs()
+        self._build_hit_evs()
+        self._build_max_evs()
+
+    @classmethod
+    def get_best_moves(cls):
+        best_moves = {}
+        for bank_card in BANK_STARTING_CARDS:
+            graph = cls(bank_card)
+            graph.build()
+            best_moves[bank_card] = {}
+            for player_state in PLAYER_POSSIBLE_STATES:
+                best_moves[bank_card][player_state] = graph.get_best_move(player_state)
+
+        return best_moves
 
 
 class BasicStrategyGraphSOSDoubleAfterSplit(PlayerGraph):

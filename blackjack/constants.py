@@ -418,7 +418,7 @@ POST_HIT_CARDS = [
 ]
 
 # All relevant hand scores before a hit.
-# In this case we do not consider pocket hands, blackjack or 21 since it's no more relevant
+# In this case we do not consider blackjack nor 21
 PRE_HIT_CARDS = [
     HandState.ACE,
     HandState.TWO,
@@ -914,4 +914,87 @@ START_HAND_WEIGHTS = {
 TOTAL_WEIGHTS_SUM = sum(START_HAND_WEIGHTS.values())  # 99
 START_HAND_PROBABILITIES = {
     key: value / TOTAL_WEIGHTS_SUM for key, value in START_HAND_WEIGHTS.items()
+}
+
+# used to determine the hand knowing the 2 constituting cards
+CARD_WEIGHT = {
+    HandState.TWO: 0,
+    HandState.THREE: 1,
+    HandState.FOUR: 2,
+    HandState.FIVE: 4,
+    HandState.SIX: 8,
+    HandState.SEVEN: 16,
+    HandState.EIGHT: 32,
+    HandState.NINE: 64,
+    HandState.FIGURE: 128,
+    HandState.ACE: 256,
+}
+
+WEIGHT_TO_HAND = {
+    # 2
+    CARD_WEIGHT[HandState.TWO] | CARD_WEIGHT[HandState.TWO]: HandState.POCKET_TWO,
+    CARD_WEIGHT[HandState.TWO] | CARD_WEIGHT[HandState.THREE]: HandState.FIVE,
+    CARD_WEIGHT[HandState.TWO] | CARD_WEIGHT[HandState.FOUR]: HandState.SIX,
+    CARD_WEIGHT[HandState.TWO] | CARD_WEIGHT[HandState.FIVE]: HandState.SEVEN,
+    CARD_WEIGHT[HandState.TWO] | CARD_WEIGHT[HandState.SIX]: HandState.EIGHT,
+    CARD_WEIGHT[HandState.TWO] | CARD_WEIGHT[HandState.SEVEN]: HandState.NINE,
+    CARD_WEIGHT[HandState.TWO] | CARD_WEIGHT[HandState.EIGHT]: HandState.TEN,
+    CARD_WEIGHT[HandState.TWO] | CARD_WEIGHT[HandState.NINE]: HandState.ELEVEN,
+    CARD_WEIGHT[HandState.TWO] | CARD_WEIGHT[HandState.FIGURE]: HandState.TWELVE,
+    CARD_WEIGHT[HandState.TWO] | CARD_WEIGHT[HandState.ACE]: HandState.THREE_THIRTEEN,
+    # 3
+    CARD_WEIGHT[HandState.THREE] | CARD_WEIGHT[HandState.THREE]: HandState.POCKET_THREE,
+    CARD_WEIGHT[HandState.THREE] | CARD_WEIGHT[HandState.FOUR]: HandState.SEVEN,
+    CARD_WEIGHT[HandState.THREE] | CARD_WEIGHT[HandState.FIVE]: HandState.EIGHT,
+    CARD_WEIGHT[HandState.THREE] | CARD_WEIGHT[HandState.SIX]: HandState.NINE,
+    CARD_WEIGHT[HandState.THREE] | CARD_WEIGHT[HandState.SEVEN]: HandState.TEN,
+    CARD_WEIGHT[HandState.THREE] | CARD_WEIGHT[HandState.EIGHT]: HandState.ELEVEN,
+    CARD_WEIGHT[HandState.THREE] | CARD_WEIGHT[HandState.NINE]: HandState.TWELVE,
+    CARD_WEIGHT[HandState.THREE] | CARD_WEIGHT[HandState.FIGURE]: HandState.THIRTEEN,
+    CARD_WEIGHT[HandState.THREE] | CARD_WEIGHT[HandState.ACE]: HandState.FOUR_FOURTEEN,
+    # 4
+    CARD_WEIGHT[HandState.FOUR] | CARD_WEIGHT[HandState.FOUR]: HandState.POCKET_FOUR,
+    CARD_WEIGHT[HandState.FOUR] | CARD_WEIGHT[HandState.FIVE]: HandState.NINE,
+    CARD_WEIGHT[HandState.FOUR] | CARD_WEIGHT[HandState.SIX]: HandState.TEN,
+    CARD_WEIGHT[HandState.FOUR] | CARD_WEIGHT[HandState.SEVEN]: HandState.ELEVEN,
+    CARD_WEIGHT[HandState.FOUR] | CARD_WEIGHT[HandState.EIGHT]: HandState.TWELVE,
+    CARD_WEIGHT[HandState.FOUR] | CARD_WEIGHT[HandState.NINE]: HandState.THIRTEEN,
+    CARD_WEIGHT[HandState.FOUR] | CARD_WEIGHT[HandState.FIGURE]: HandState.FOURTEEN,
+    CARD_WEIGHT[HandState.FOUR] | CARD_WEIGHT[HandState.ACE]: HandState.FIVE_FIFTEEN,
+    # 5
+    CARD_WEIGHT[HandState.FIVE] | CARD_WEIGHT[HandState.FIVE]: HandState.POCKET_FIVE,
+    CARD_WEIGHT[HandState.FIVE] | CARD_WEIGHT[HandState.SIX]: HandState.ELEVEN,
+    CARD_WEIGHT[HandState.FIVE] | CARD_WEIGHT[HandState.SEVEN]: HandState.TWELVE,
+    CARD_WEIGHT[HandState.FIVE] | CARD_WEIGHT[HandState.EIGHT]: HandState.THIRTEEN,
+    CARD_WEIGHT[HandState.FIVE] | CARD_WEIGHT[HandState.NINE]: HandState.FOURTEEN,
+    CARD_WEIGHT[HandState.FIVE] | CARD_WEIGHT[HandState.FIGURE]: HandState.FIFTEEN,
+    CARD_WEIGHT[HandState.FIVE] | CARD_WEIGHT[HandState.ACE]: HandState.SIX_SIXTEEN,
+    # 6
+    CARD_WEIGHT[HandState.SIX] | CARD_WEIGHT[HandState.SIX]: HandState.POCKET_SIX,
+    CARD_WEIGHT[HandState.SIX] | CARD_WEIGHT[HandState.SEVEN]: HandState.THIRTEEN,
+    CARD_WEIGHT[HandState.SIX] | CARD_WEIGHT[HandState.EIGHT]: HandState.FOURTEEN,
+    CARD_WEIGHT[HandState.SIX] | CARD_WEIGHT[HandState.NINE]: HandState.FIFTEEN,
+    CARD_WEIGHT[HandState.SIX] | CARD_WEIGHT[HandState.FIGURE]: HandState.SIXTEEN,
+    CARD_WEIGHT[HandState.SIX] | CARD_WEIGHT[HandState.ACE]: HandState.SEVEN_SEVENTEEN,
+    # 7
+    CARD_WEIGHT[HandState.SEVEN] | CARD_WEIGHT[HandState.SEVEN]: HandState.POCKET_SEVEN,
+    CARD_WEIGHT[HandState.SEVEN] | CARD_WEIGHT[HandState.EIGHT]: HandState.FIFTEEN,
+    CARD_WEIGHT[HandState.SEVEN] | CARD_WEIGHT[HandState.NINE]: HandState.SIXTEEN,
+    CARD_WEIGHT[HandState.SEVEN] | CARD_WEIGHT[HandState.FIGURE]: HandState.SEVENTEEN,
+    CARD_WEIGHT[HandState.SEVEN] | CARD_WEIGHT[HandState.ACE]: HandState.EIGHT_EIGHTEEN,
+    # 8
+    CARD_WEIGHT[HandState.EIGHT] | CARD_WEIGHT[HandState.EIGHT]: HandState.POCKET_EIGHT,
+    CARD_WEIGHT[HandState.EIGHT] | CARD_WEIGHT[HandState.NINE]: HandState.SEVENTEEN,
+    CARD_WEIGHT[HandState.EIGHT] | CARD_WEIGHT[HandState.FIGURE]: HandState.EIGHTEEN,
+    CARD_WEIGHT[HandState.EIGHT] | CARD_WEIGHT[HandState.ACE]: HandState.NINE_NINETEEN,
+    # 9
+    CARD_WEIGHT[HandState.NINE] | CARD_WEIGHT[HandState.NINE]: HandState.POCKET_NINE,
+    CARD_WEIGHT[HandState.NINE] | CARD_WEIGHT[HandState.FIGURE]: HandState.NINETEEN,
+    CARD_WEIGHT[HandState.NINE] | CARD_WEIGHT[HandState.ACE]: HandState.TEN_TWENTY,
+    # Figure
+    CARD_WEIGHT[HandState.FIGURE]
+    | CARD_WEIGHT[HandState.FIGURE]: HandState.POCKET_FIGURE,
+    CARD_WEIGHT[HandState.FIGURE] | CARD_WEIGHT[HandState.ACE]: HandState.BLACKJACK,
+    # Ace
+    CARD_WEIGHT[HandState.ACE] | CARD_WEIGHT[HandState.ACE]: HandState.POCKET_ACE,
 }
