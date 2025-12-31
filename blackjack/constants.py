@@ -918,16 +918,16 @@ START_HAND_PROBABILITIES = {
 
 # used to determine the hand knowing the 2 constituting cards
 CARD_WEIGHT = {
-    HandState.TWO: 0,
-    HandState.THREE: 1,
-    HandState.FOUR: 2,
-    HandState.FIVE: 4,
-    HandState.SIX: 8,
-    HandState.SEVEN: 16,
-    HandState.EIGHT: 32,
-    HandState.NINE: 64,
-    HandState.FIGURE: 128,
-    HandState.ACE: 256,
+    HandState.TWO: 1,
+    HandState.THREE: 2,
+    HandState.FOUR: 4,
+    HandState.FIVE: 8,
+    HandState.SIX: 16,
+    HandState.SEVEN: 32,
+    HandState.EIGHT: 64,
+    HandState.NINE: 128,
+    HandState.FIGURE: 256,
+    HandState.ACE: 512,
 }
 
 WEIGHT_TO_HAND = {
