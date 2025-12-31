@@ -1,5 +1,5 @@
 from blackjack.constants import START_HAND_PROBABILITIES
-from blackjack.tests.random import CardGenerator
+from blackjack.montecarlo import CardGenerator
 from blackjack.graph import determine_hand
 
 

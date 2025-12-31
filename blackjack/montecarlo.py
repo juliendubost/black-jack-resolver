@@ -1,5 +1,4 @@
-import datetime
-import os
+import copy
 import random
 import json
 import uuid
@@ -21,9 +20,9 @@ from blackjack.constants import (
     MOVE_STAND,
     MOVE_SURRENDER_ELSE_HIT,
     POST_SPLIT_STATE,
+    BANK_STARTING_CARDS,
 )
 
-logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
 
 
@@ -69,53 +68,63 @@ class Simulator:
     def __init__(
         self,
         best_moves_map,
-        output_dir_path=f"simulations/{datetime.datetime.now().isoformat()}",
+        filepath=None,
         bank_hit_on_soft=False,
     ):
         self.card_generator = CardGenerator()
-        self.output_dir_path = output_dir_path
+        self.filepath = filepath
         self.hit_on_soft = bank_hit_on_soft
         self.best_moves_map = best_moves_map
+        self.exit = False
 
         # key: start state, value: tuple(expected value, sample size)
-        self.ev = {
-            HandState.FIVE: [0, 0],
-            HandState.SIX: [0, 0],
-            HandState.SEVEN: [0, 0],
-            HandState.EIGHT: [0, 0],
-            HandState.NINE: [0, 0],
-            HandState.TEN: [0, 0],
-            HandState.ELEVEN: [0, 0],
-            HandState.TWELVE: [0, 0],
-            HandState.THIRTEEN: [0, 0],
-            HandState.FOURTEEN: [0, 0],
-            HandState.FIFTEEN: [0, 0],
-            HandState.SIXTEEN: [0, 0],
-            HandState.SEVENTEEN: [0, 0],
-            HandState.EIGHTEEN: [0, 0],
-            HandState.NINETEEN: [0, 0],
-            # HandState.TWENTY is excluded, it is considered as a pocket figures,
-            HandState.BLACKJACK: [0, 0],
-            HandState.POCKET_ACE: [0, 0],
-            HandState.POCKET_TWO: [0, 0],
-            HandState.POCKET_THREE: [0, 0],
-            HandState.POCKET_FOUR: [0, 0],
-            HandState.POCKET_FIVE: [0, 0],
-            HandState.POCKET_SIX: [0, 0],
-            HandState.POCKET_SEVEN: [0, 0],
-            HandState.POCKET_EIGHT: [0, 0],
-            HandState.POCKET_NINE: [0, 0],
-            HandState.POCKET_FIGURE: [0, 0],
-            # HandState.TWO_TWELVE is excluded, it is considered as a pocket A
-            HandState.THREE_THIRTEEN: [0, 0],
-            HandState.FOUR_FOURTEEN: [0, 0],
-            HandState.FIVE_FIFTEEN: [0, 0],
-            HandState.SIX_SIXTEEN: [0, 0],
-            HandState.SEVEN_SEVENTEEN: [0, 0],
-            HandState.EIGHT_EIGHTEEN: [0, 0],
-            HandState.NINE_NINETEEN: [0, 0],
-            HandState.TEN_TWENTY: [0, 0],
-        }
+        if self.filepath:
+            self.ev = json.load(open(self.filepath, "r"))
+            LOG.info(f"loaded file {self.filepath}")
+        else:
+            self.filepath = f"{uuid.uuid4()}.json"
+            self.ev = {}
+            # use str to be consistent with loaded files
+            ev_pattern = {
+                str(HandState.FIVE): [0, 0],
+                str(HandState.SIX): [0, 0],
+                str(HandState.SEVEN): [0, 0],
+                str(HandState.EIGHT): [0, 0],
+                str(HandState.NINE): [0, 0],
+                str(HandState.TEN): [0, 0],
+                str(HandState.ELEVEN): [0, 0],
+                str(HandState.TWELVE): [0, 0],
+                str(HandState.THIRTEEN): [0, 0],
+                str(HandState.FOURTEEN): [0, 0],
+                str(HandState.FIFTEEN): [0, 0],
+                str(HandState.SIXTEEN): [0, 0],
+                str(HandState.SEVENTEEN): [0, 0],
+                str(HandState.EIGHTEEN): [0, 0],
+                str(HandState.NINETEEN): [0, 0],
+                # str(HandState.TWENTY is excluded, it is considered as a pocket figures,
+                str(HandState.BLACKJACK): [0, 0],
+                str(HandState.POCKET_ACE): [0, 0],
+                str(HandState.POCKET_TWO): [0, 0],
+                str(HandState.POCKET_THREE): [0, 0],
+                str(HandState.POCKET_FOUR): [0, 0],
+                str(HandState.POCKET_FIVE): [0, 0],
+                str(HandState.POCKET_SIX): [0, 0],
+                str(HandState.POCKET_SEVEN): [0, 0],
+                str(HandState.POCKET_EIGHT): [0, 0],
+                str(HandState.POCKET_NINE): [0, 0],
+                str(HandState.POCKET_FIGURE): [0, 0],
+                # str(HandState.TWO_TWELVE is excluded, it is considered as a pocket A
+                str(HandState.THREE_THIRTEEN): [0, 0],
+                str(HandState.FOUR_FOURTEEN): [0, 0],
+                str(HandState.FIVE_FIFTEEN): [0, 0],
+                str(HandState.SIX_SIXTEEN): [0, 0],
+                str(HandState.SEVEN_SEVENTEEN): [0, 0],
+                str(HandState.EIGHT_EIGHTEEN): [0, 0],
+                str(HandState.NINE_NINETEEN): [0, 0],
+                str(HandState.TEN_TWENTY): [0, 0],
+            }
+            for card in BANK_STARTING_CARDS:
+                self.ev[str(card)] = copy.deepcopy(ev_pattern)
 
     def random_bank_start_hand(self):
         return self.card_generator.get()
@@ -126,9 +135,9 @@ class Simulator:
 
         return WEIGHT_TO_HAND[CARD_WEIGHT[card_one] | CARD_WEIGHT[card_two]]
 
-    def get_bank_score(self, initial_state):
+    def get_bank_final_state(self, initial_state):
         """
-        Given an initial state, return a final bank score using random cards
+        Given an initial state, return a final bank state using random cards
         Hit cards until bank state is final
         """
         state = initial_state
@@ -139,17 +148,38 @@ class Simulator:
 
         return state
 
+    def total_value(self):
+        """
+        Return total expected value from simulation
+        """
+        total_ev = 0
+        total_samples = 0
+        for bank_card, ev in self.ev.items():
+            for value, sample_size in ev.values():
+                total_ev += ev
+                total_samples += sample_size
+
+        LOG.info(f"Total samples: {total_samples}")
+        LOG.info(f"Total value: {total_ev}")
+        average_per_hand = (1 - total_ev) / total_samples
+        LOG.info(f"Average value per hand: {average_per_hand}")
+        LOG.info(f"Game EV: {1 + average_per_hand}")
+
+        return total_ev / total_samples
+
     def save(self):
         """
         Save the simulation result to a unique file
         """
-        filepath = os.path.join(self.output_dir_path, f"{str(uuid.uuid4())}.json")
-        json.dump(self.ev, open(filepath, "w"), indent=2)
+        json.dump(self.ev, open(self.filepath, "w"), indent=2)
+        LOG.info(f"Simulation saved to {self.filepath}")
+        self.total_value()
 
     def player_final_states(self, bank_state, player_state, states, deepth=0):
         """
         Recursive method that return states after all moves are done (draws, surrender, splits)
         Only 1 split allowed, surrender is allowed, double is allowed
+        Split aces does not allow black jacks (21 instead)
         states: list of tuples (HandState, bet integer)
         """
 
@@ -199,6 +229,11 @@ class Simulator:
                 second_hand_state = HIT_TRANSITIONS[POST_SPLIT_STATE[player_state]][
                     self.card_generator.get()
                 ]
+                if deepth:
+                    if first_hand_state == HandState.BLACKJACK:
+                        first_hand_state = HandState.TWENTY_ONE
+                    if second_hand_state == HandState.BLACKJACK:
+                        second_hand_state = HandState.TWENTY_ONE
                 LOG.debug(
                     f"bank: {bank_state}, player: {initial_state}] => split to {first_hand_state} & {second_hand_state}"
                 )
@@ -252,5 +287,44 @@ class Simulator:
         states = []
         self.player_final_states(bank_initial_state, player_initial_state, states)
 
-        # TODO: make evaluation againt bank card and save values
-        
+        bank_final_score = STATE_TO_SCORE[self.get_bank_final_state(bank_initial_state)]
+
+        total_bet = 0
+        total_earn = 0
+
+        for hand_state, bet in states:
+            hand_score = STATE_TO_SCORE[hand_state] if hand_state is not None else None
+            if hand_score is None:
+                # surrendered
+                total_bet += 1
+                total_earn += 0.5
+            elif hand_score == HandState.BUST:
+                total_bet += bet
+            elif hand_score == HandState.BLACKJACK:
+                total_bet += bet
+                if bank_final_score == HandState.BLACKJACK:
+                    total_earn += bet
+                else:
+                    total_earn += 2.5
+            else:
+                total_bet += bet
+                if hand_score == bank_final_score:
+                    total_earn += bet
+                elif hand_score.value > bank_final_score.value:
+                    total_earn += 2 * bet
+
+        self.ev[str(bank_initial_state)][str(player_initial_state)][0] += (
+            total_earn - total_bet
+        )
+        self.ev[str(bank_initial_state)][str(player_initial_state)][1] += 1
+
+    def run(self):
+        """
+        Simulate hands until interrupted, then save results
+        """
+
+        while True:
+            if self.exit:
+                self.save()
+                break
+            self.simulate_hand()

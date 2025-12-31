@@ -10,7 +10,7 @@ from blackjack.constants import (
     HIT_TRANSITIONS,
     HandState,
 )
-from blackjack.tests.random import get_bank_score, CardGenerator
+from blackjack.montecarlo import get_bank_score, CardGenerator
 
 
 class TestBankTransitions:

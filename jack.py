@@ -1,9 +1,16 @@
+import signal
 import argparse
 import sys
+import logging
 
 from blackjack import (
     settings,
 )  # do not import anything else from blackjack package here
+
+from blackjack.montecarlo import Simulator
+
+
+logging.basicConfig(level=logging.INFO)
 
 
 def display_ev(bank_card):
@@ -100,6 +107,7 @@ if __name__ == "__main__":
     commands are:\n
       ev_table: display expected values table for given bank card
       best_moves: display best moves table and total expected value
+      montecarlo: simulate hands to compute expected values until interrupted
     """
 
     parser = argparse.ArgumentParser(
@@ -129,6 +137,10 @@ if __name__ == "__main__":
         "--ace-no-bj",
         action="store_true",
         help="Blackjack is not allowed after pocket aces split",
+    )
+    parser.add_argument(
+        "--mc-file",
+        help="start montecarlo simulation from previously saved state in given file",
     )
     arguments = parser.parse_args()
 
@@ -173,6 +185,20 @@ if __name__ == "__main__":
 
     elif arguments.command == "best_moves":
         display_best_moves(PlayerGraph)
+
+    elif arguments.command == "montecarlo":
+        best_moves = PlayerGraph.get_best_moves()
+        simulator = Simulator(best_moves, filepath=arguments.mc_file)
+
+        def sig_int_handler(sig, frame):
+            """
+            Signal handler that set exit_loop to True on SIGINT, SIGTERM and SIGPIPE
+            """
+            if sig in [signal.SIGINT, signal.SIGTERM, signal.SIGPIPE]:
+                simulator.exit = True
+
+        signal.signal(signal.SIGINT, sig_int_handler)
+        simulator.run()
 
     else:
         sys.stdout.write(f"unknown command {arguments.command}\n")

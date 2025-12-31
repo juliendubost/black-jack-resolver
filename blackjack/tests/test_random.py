@@ -1,7 +1,7 @@
 import sys
 import copy
 
-from blackjack.tests.random import CardGenerator, get_bank_score
+from blackjack.montecarlo import CardGenerator, get_bank_score
 from blackjack.constants import HandState, BANK_STARTING_CARDS, BANK_STAND_STATES
 
 
