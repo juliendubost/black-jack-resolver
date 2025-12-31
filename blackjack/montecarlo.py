@@ -44,6 +44,8 @@ class CardGenerator:
             HandState.FIGURE,  # represent a queen
             HandState.FIGURE,  # represent a king
         ]
+        self.cards = self.cards * 7  # 7 decks
+        self.sysrandom.shuffle(self.cards)
 
     def get(self):
         """
@@ -156,7 +158,7 @@ class Simulator:
         total_samples = 0
         for bank_card, ev in self.ev.items():
             for value, sample_size in ev.values():
-                total_ev += ev
+                total_ev += value
                 total_samples += sample_size
 
         LOG.info(f"Total samples: {total_samples}")
