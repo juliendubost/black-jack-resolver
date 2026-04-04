@@ -25,44 +25,44 @@ def display_best_moves(graph_class):
         for player_state in constants.PLAYER_POSSIBLE_STATES:
             best_moves_map[bank_card][player_state] = graph.get_best_move(player_state)
     sys.stdout.write(
-        f"-----------------------------------------------------------------------------------\n"
+        f"---------------------------------------------------------------------------------------\n"
     )
     sys.stdout.write(
         f"Player best move for each bank card (first line) and each state (first column)\n"
     )
     sys.stdout.write(
-        f"-----------------------------------------------------------------------------------\n"
+        f"---------------------------------------------------------------------------------------\n"
     )
-    sys.stdout.write("\t")
+    sys.stdout.write("\t\t")
     for bank_card in constants.BANK_STARTING_CARDS:
         sys.stdout.write(f"{str(bank_card)}\t")
     sys.stdout.write("\n")
     sys.stdout.write(
-        f"-----------------------------------------------------------------------------------\n"
+        f"---------------------------------------------------------------------------------------\n"
     )
     for player_state in constants.PLAYER_HARD_STATES:
-        sys.stdout.write(f"{str(player_state)}\t")
+        sys.stdout.write(f"{str(player_state).rjust(5)}\t")
         for bank_card in best_moves_map.keys():
             sys.stdout.write(f"{best_moves_map[bank_card][player_state]}\t")
         sys.stdout.write("\n")
     sys.stdout.write(
-        f"-----------------------------------------------------------------------------------\n"
+        f"---------------------------------------------------------------------------------------\n"
     )
     for player_state in constants.PLAYER_SOFT_STATES:
-        sys.stdout.write(f"{str(player_state)}\t")
+        sys.stdout.write(f"{str(player_state).rjust(5)}\t")
         for bank_card in best_moves_map.keys():
             sys.stdout.write(f"{best_moves_map[bank_card][player_state]}\t")
         sys.stdout.write("\n")
     sys.stdout.write(
-        f"-----------------------------------------------------------------------------------\n"
+        f"---------------------------------------------------------------------------------------\n"
     )
     for player_state in constants.PLAYER_PAIRS_STATES:
-        sys.stdout.write(f"{str(player_state)}\t")
+        sys.stdout.write(f"{str(player_state).rjust(5)}\t")
         for bank_card in best_moves_map.keys():
             sys.stdout.write(f"{best_moves_map[bank_card][player_state]}\t")
         sys.stdout.write("\n")
     sys.stdout.write(
-        f"-----------------------------------------------------------------------------------\n"
+        f"---------------------------------------------------------------------------------------\n"
     )
     sys.stdout.write("legend:\n")
     sys.stdout.write(f"\t{constants.MOVE_STAND}: Stand\n")
