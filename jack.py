@@ -41,7 +41,7 @@ def display_best_moves(graph_class):
         f"---------------------------------------------------------------------------------------\n"
     )
     for player_state in constants.PLAYER_HARD_STATES:
-        sys.stdout.write(f"{str(player_state)}\t\t")
+        sys.stdout.write(f"{str(player_state).rjust(5)}\t")
         for bank_card in best_moves_map.keys():
             sys.stdout.write(f"{best_moves_map[bank_card][player_state]}\t")
         sys.stdout.write("\n")
@@ -49,7 +49,7 @@ def display_best_moves(graph_class):
         f"---------------------------------------------------------------------------------------\n"
     )
     for player_state in constants.PLAYER_SOFT_STATES:
-        sys.stdout.write(f"{str(player_state)}\t\t")
+        sys.stdout.write(f"{str(player_state).rjust(5)}\t")
         for bank_card in best_moves_map.keys():
             sys.stdout.write(f"{best_moves_map[bank_card][player_state]}\t")
         sys.stdout.write("\n")
@@ -57,7 +57,7 @@ def display_best_moves(graph_class):
         f"---------------------------------------------------------------------------------------\n"
     )
     for player_state in constants.PLAYER_PAIRS_STATES:
-        sys.stdout.write(f"{str(player_state)}\t\t")
+        sys.stdout.write(f"{str(player_state).rjust(5)}\t")
         for bank_card in best_moves_map.keys():
             sys.stdout.write(f"{best_moves_map[bank_card][player_state]}\t")
         sys.stdout.write("\n")
