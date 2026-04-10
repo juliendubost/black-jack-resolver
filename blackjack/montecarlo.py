@@ -22,6 +22,7 @@ from blackjack.constants import (
     POST_SPLIT_STATE,
     BANK_STARTING_CARDS,
 )
+from blackjack import settings
 
 LOG = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ class Simulator:
         else:
             self.filepath = f"{uuid.uuid4()}.json"
             self.ev = {}
-            # use str to be consistent with loaded files
+            # use str for consistence with loaded files
             ev_pattern = {
                 str(HandState.FIVE): [0, 0],
                 str(HandState.SIX): [0, 0],
@@ -276,6 +277,8 @@ class Simulator:
                     states.append((player_state, 1))
                     LOG.debug(f"bank: {bank_state}, player: {initial_state}] => stand")
                 break
+            else:
+                raise ValueError(f"invalid move {best_move}")
 
     def simulate_hand(self, player_initial_state=None, bank_initial_state=None):
         """
@@ -290,6 +293,7 @@ class Simulator:
         self.player_final_states(bank_initial_state, player_initial_state, states)
 
         bank_final_score = STATE_TO_SCORE[self.get_bank_final_state(bank_initial_state)]
+        LOG.debug(f"bank initial: {bank_initial_state}, player initial: {player_initial_state}, bank final score: {bank_final_score}, player final states: {states}")
 
         total_bet = 0
         total_earn = 0
@@ -324,9 +328,10 @@ class Simulator:
         """
         Simulate hands until interrupted, then save results
         """
-
+        LOG.info("Running simulation, press Ctrl+C to stop and save results")
         while True:
+            for i in range(300000):
+                self.simulate_hand()
+            self.save()
             if self.exit:
-                self.save()
                 break
-            self.simulate_hand()

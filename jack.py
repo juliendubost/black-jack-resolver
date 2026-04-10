@@ -8,15 +8,17 @@ from blackjack import (
 )  # do not import anything else from blackjack package here
 
 from blackjack.montecarlo import Simulator
-
+from blackjack.overload import BEST_MOVES_OVERLOAD
 
 logging.basicConfig(level=logging.INFO)
+
+LOG = logging.getLogger(__name__)
 
 
 def display_ev(bank_card):
     pg = PlayerGraph(bank_card)
     pg.build()
-    print(pg)
+    LOG.info(pg)
 
 
 def display_best_moves(graph_class):
@@ -113,7 +115,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="jack.py", epilog=epilog, formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.add_argument("command", help="one of: best_moves or ev_table")
+    parser.add_argument("command", help="one of: best_moves or ev_table or montecarlo")
     parser.add_argument(
         "-card",
         help="needed only after ev_table command, one of: A, 2, 3, 4, 5, 6, 7, 8, 9, F",
@@ -177,7 +179,7 @@ if __name__ == "__main__":
         hand_state = hand_states.get(arguments.card)
 
         if hand_state is None:
-            print(
+            LOG.ERROR(
                 f"'{arguments.ev_table}' is an incorrect choice for --ev-table argument"
             )
 
@@ -188,12 +190,16 @@ if __name__ == "__main__":
 
     elif arguments.command == "montecarlo":
         best_moves = PlayerGraph.get_best_moves()
+#        for bank_card, value in best_moves.items():
+#            value.update(BEST_MOVES_OVERLOAD.get(bank_card, {}))
+
         simulator = Simulator(best_moves, filepath=arguments.mc_file)
 
         def sig_int_handler(sig, frame):
             """
             Signal handler that set exit_loop to True on SIGINT, SIGTERM and SIGPIPE
             """
+            LOG.info("Signal received, exiting gracefully...")
             if sig in [signal.SIGINT, signal.SIGTERM, signal.SIGPIPE]:
                 simulator.exit = True
 
